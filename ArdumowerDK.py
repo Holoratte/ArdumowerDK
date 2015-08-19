@@ -2,10 +2,10 @@
 # Name:        Ardumower DK
 # Purpose:     Communication Ardumower - Windows computer via Bluetooth
 #
-# Author:      Dragon
+# Author:      Holoratte
 #
-# Created:     11.08.2015
-# Copyright:   (c) Dragon 2015
+# Created:     19.08.2015
+# Copyright:   (c) Holoratte 2015
 # Licence:     Just use it. Selling this software might be prohibited.
 #
 #-------------------------------------------------------------------------------
