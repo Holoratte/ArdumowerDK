@@ -191,6 +191,10 @@ class GuiPart:
             self.ax[i].yaxis.set_major_formatter(FormatStrFormatter('%d'))
             self.canvas.append(self.ax[i].figure.canvas)
         self.c.mpl_connect('draw_event',self.update_background)
+        self.f.subplots_adjust(hspace=0.1)
+        for a in self.f.axes[:-1]:
+            a.set_xlabel("")
+            a.set_xticks([])
 
         self.channel += 1
         self.channel = 0
