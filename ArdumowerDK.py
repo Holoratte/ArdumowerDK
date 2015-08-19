@@ -31,7 +31,7 @@ import time
 import threading
 import random
 import Queue
-import statusbar
+##import statusbar
 import Ringbuffer
 import serial
 import tkMessageBox
@@ -41,6 +41,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+import platform
 
 class GuiPart:
     def __init__(self, master, receivedQueue, sendQueue, endCommand, Debug):
@@ -50,9 +51,9 @@ class GuiPart:
            button = tk.Button(filewin, text="Do nothing button")
            button.pack()
 
-        self.lastCommand = []
-        for i in range(100):
-            self.lastCommand.append(".")
+##        self.lastCommand = []
+##        for i in range(100):
+##            self.lastCommand.append(".")
         ##---------------Menu--------------------------------------------
         menubar = tk.Menu(master)
         filemenu = tk.Menu(menubar, tearoff = 0)
@@ -99,9 +100,12 @@ class GuiPart:
 ##        menubar.add_cascade(label="Help", menu=helpmenu)
 
         master.config(menu=menubar)
+
         #---------------------Menu End----------------------------------------------------------
+
         self.RQueue = receivedQueue
         self.SQueue = sendQueue
+
         # Set up the GUI
 
         self.console1 = tk.Button(master, text='Main', command= self.mainmenu)
@@ -111,14 +115,14 @@ class GuiPart:
 ##        console2.grid(column = 2, row =1)
 ##        console3 = tk.Button(master, text='Back', command=lambda: self.send(self.lastCommand[-2],"back"))
 ##        console3.grid(column = 3, row =1)
-        self.m1 = statusbar.Meter(root, relief='ridge', bd=3, width = 300)
+##        self.m1 = statusbar.Meter(root, relief='ridge', bd=3, width = 300)
 ##        self.m1.grid(row=4, column=1)
         self.nav_buttons = []
         self.scale = []
         self.scaleVar = []
         self.main_buttons = []
-        self.maincommand_array = []
-        self.maincomName_array = []
+        self.maincommand_list = []
+        self.maincomName_list = []
         self.titles = []
         coma = "xxx"
         for i in range(10):
@@ -146,7 +150,7 @@ class GuiPart:
             self.scale[i].grid_remove()
 
 #        -----------------------------------Plot---------------------------
-        self.canvasnumber =4
+        self.canvasnumber =6
         self.plot = False
         self.channel = 0
         self.f = Figure()
@@ -187,18 +191,13 @@ class GuiPart:
             self.ax[i].yaxis.set_major_formatter(FormatStrFormatter('%d'))
             self.canvas.append(self.ax[i].figure.canvas)
         self.c.mpl_connect('draw_event',self.update_background)
-        self.f.subplots_adjust(hspace=0)
-        for a in self.f.axes[:-1]:
-            a.set_xlabel("")
-            a.set_xticks([])
-
 
         self.channel += 1
         self.channel = 0
 
         self.plotnumbers = [0]
         self.datasize = 300
-        self.data_array =[]
+        self.data_list =[]
         self.datanumber = 0
         self.timeSent = False
         self.idle_flag = True
@@ -274,6 +273,7 @@ class GuiPart:
 
     def sendAutomode(self,event):
         self.send("ra")
+
     def send(self, command, value = None):
 
         if value == None and command!= "sz" and command!= "sx": self.lastCommand.append(command)
@@ -334,16 +334,16 @@ class GuiPart:
         Handle all the messages currently in the queue (if any).
         """
         while self.RQueue.qsize():
-            msg_array = []
-            data_array = []
-            self.command_array = []
-            self.comName_array = []
+            msg_list = []
+            data_list = []
+            self.command_list = []
+            self.comName_list = []
 
-            self.multiplier_array = []
-            self.scaleActiv_array = []
-            self.minimum_array = []
-            self.maximum_array = []
-            self.ist_array = []
+            self.multiplier_list = []
+            self.scaleActiv_list = []
+            self.minimum_list = []
+            self.maximum_list = []
+            self.ist_list = []
             multiplier = 0
             init = False
             try:
@@ -366,12 +366,12 @@ class GuiPart:
                     msg = msg.strip(".")
                     msg = msg.strip("=")
 
-                    msg_array = msg.rsplit("|")
+                    msg_list = msg.rsplit("|")
 
                 elif msg.find(",") >= 0:
-                    data_array = msg.rsplit(",")
-                    for i in range(len(data_array)):
-                        data_array[i] = float(data_array[i])
+                    data_list = msg.rsplit(",")
+                    for i in range(len(data_list)):
+                        data_list[i] = float(data_list[i])
                 else:
 ##                    print"msg error"
                     pass
@@ -380,37 +380,37 @@ class GuiPart:
                         self.nav_buttons[i].grid_remove()
                         self.scale[i].grid_remove()
 
-                if len(msg_array) >= 1 or self.plot:
+                if len(msg_list) >= 1 or self.plot:
     ##
                     if init:
                         self.titles = []
-##                        print msg_array
-                        self.maincommand_array=[]
-                        self.maincomName_array = []
+##                        print msg_list
+                        self.maincommand_list=[]
+                        self.maincomName_list = []
                         self.c.get_tk_widget().grid_remove()
 ##                        self.toolbar.grid_remove()
-                        for i in range(len(msg_array)-1):
-                            coma, comName = msg_array[i+1].split("~")
+                        for i in range(len(msg_list)-1):
+                            coma, comName = msg_list[i+1].split("~")
     ##                        print coma
-                            self.maincommand_array.append(coma)
-    ##                        print self.command_array
-                            self.maincomName_array.append(comName)
+                            self.maincommand_list.append(coma)
+    ##                        print self.command_list
+                            self.maincomName_list.append(comName)
                             self.main_buttons[i].grid()
-                            self.main_buttons[i].configure(text=self.maincomName_array[i], command= lambda i=i: self.send(self.maincommand_array[i]))
+                            self.main_buttons[i].configure(text=self.maincomName_list[i], command= lambda i=i: self.send(self.maincommand_list[i]))
                             self.titles.append(comName)
                         init = False
 ##                            self.console1.grid()
 
                     elif self.plot:
-##                        print data_array
-                        if len(msg_array)>=2:
-##                            print msg_array
+##                        print data_list
+                        if len(msg_list)>=2:
+##                            print msg_list
 
-                            if msg_array[0].find("`")>=0:
-                                title,self.datasize = msg_array[0].split("`")
-                            if msg_array[1].find("`")>=0:
-                                for i in range(len(msg_array)-1):
-                                    msg_array[i+1], num = msg_array[i+1].split("`")
+                            if msg_list[0].find("`")>=0:
+                                title,self.datasize = msg_list[0].split("`")
+                            if msg_list[1].find("`")>=0:
+                                for i in range(len(msg_list)-1):
+                                    msg_list[i+1], num = msg_list[i+1].split("`")
                                 print num
                             for name in self.plotnames:
                                 name = "value"
@@ -421,54 +421,54 @@ class GuiPart:
                                 self.ax[i].set_ylim(0,0)
                                 self.master.after_idle(self.ax[i].figure.canvas.draw)
 
-                            self.data_array = []
+                            self.data_list = []
                             self.lo = []
                             self.hi = []
                             self.plotnumbers = [0]
                             for i in range(len(self.main_buttons)):
                                     self.main_buttons[i].configure(relief = tk.RAISED)
-##                            print msg_array
+##                            print msg_list
 ##                            print self.titles
                             for tiltle in self.titles:
                                 ti = tiltle
-                                if msg_array[0].find(ti) >= 0:
+                                if msg_list[0].find(ti) >= 0:
                                     tiltlenumber = self.titles.index(tiltle)
                                     self.main_buttons[tiltlenumber].configure(relief = tk.RIDGE)
-                            if msg_array[1].find("time")>=0:
+                            if msg_list[1].find("time")>=0:
 
-                                msg_array = msg_array[1:]
-                                print msg_array
+                                msg_list = msg_list[1:]
+                                print msg_list
                                 self.timeSent = True
                             else: self.timeSent = False
-                            for i in range(len(msg_array)-1):
-                                self.data_array.append(Ringbuffer.RingBuffer(int(self.datasize)))
+                            for i in range(len(msg_list)-1):
+                                self.data_list.append(Ringbuffer.RingBuffer(int(self.datasize)))
 
                                 self.hi.append(0.0)
                                 self.lo.append(0.0)
 
                             for i in range(len(self.nav_buttons)):self.nav_buttons[i].grid_remove()
-                            for i in range(len(msg_array)-1):
+                            for i in range(len(msg_list)-1):
                                 self.nav_buttons[i].grid()
                                 if i <= (self.canvasnumber-1) :
                                     if i not in self.plotnumbers:self.plotnumbers.append(i)
-                                    self.nav_buttons[i].configure(text=msg_array[i+1],relief = tk.RIDGE, command=lambda i= i:self.setplot(i))
-                                    self.ax[i].set_ylabel(msg_array[i+1])
+                                    self.nav_buttons[i].configure(text=msg_list[i+1],relief = tk.RIDGE, command=lambda i= i:self.setplot(i))
+                                    self.ax[i].set_ylabel(msg_list[i+1])
                                 else:
                                     if i in self.plotnumbers: self.plotnumbers.remove(i)
-                                    self.nav_buttons[i].configure(text=msg_array[i+1], relief = tk.RAISED,command=lambda i= i:self.setplot(i))
-                                self.plotnames[i] = msg_array[i+1]
+                                    self.nav_buttons[i].configure(text=msg_list[i+1], relief = tk.RAISED,command=lambda i= i:self.setplot(i))
+                                self.plotnames[i] = msg_list[i+1]
 ##                                print self.plotnames
 
                             self.idle_flag = True
 
 
-                        elif len(data_array)>=1:
-##                            print data_array
+                        elif len(data_list)>=1:
+##                            print data_list
                             t0 = time.time()
                             if self.timeSent:
-                                data_array = data_array[1:]
-                            for i in range(len(data_array)):
-                                self.data_array[i].append(data_array[i])
+                                data_list = data_list[1:]
+                            for i in range(len(data_list)):
+                                self.data_list[i].append(data_list[i])
                             self.datanumber +=1
                             try:
                                 if self.idle_flag and self.idle1_flag:
@@ -476,17 +476,17 @@ class GuiPart:
 ##                                    print"number of data: ", self.datanumber
                                     tdata1 = []
                                     if len(self.plotnumbers) >=1:
-                                        for i in range(len(self.data_array[self.plotnumbers[0]])):
+                                        for i in range(len(self.data_list[self.plotnumbers[0]])):
                                             tdata1.append(i)
                                     for i in range(self.canvasnumber):
                                         if len(self.plotnumbers)>= (i+1):
     ##                                        print len(self.plotnumbers), i
                                             self.channel = i
 
-    ##                                        if (len(self.data_array)-1) >= len(self.data_array[self.plotnumbers[i]]):
+    ##                                        if (len(self.data_list)-1) >= len(self.data_list[self.plotnumbers[i]]):
                                             self.idle1_flag = False
-                                            self.master.after_idle(self.update_plots,tdata1,self.data_array[self.plotnumbers[i]], self.channel,self.plotnumbers[i])
-        ##                                        if self.update_plots(tdata1,self.data_array[self.plotnumber+i], self.channel,i):pass
+                                            self.master.after_idle(self.update_plots,tdata1,self.data_list[self.plotnumbers[i]], self.channel,self.plotnumbers[i])
+        ##                                        if self.update_plots(tdata1,self.data_list[self.plotnumber+i], self.channel,i):pass
 
                                     self.datanumber = 0
                             except:
@@ -498,8 +498,8 @@ class GuiPart:
                         for tiltle in self.titles:
                             if tiltle =="Test compass":
                                 ti = "Compass"
-                            else:ti = tiltle
-                            if msg_array[0].find(ti) >= 0:
+                            else: ti = tiltle
+                            if msg_list[0].find(ti) >= 0:
                                 tiltlenumber = self.titles.index(tiltle)
 
                                 if tiltlenumber == 6:
@@ -511,18 +511,18 @@ class GuiPart:
                                     self.c.get_tk_widget().grid()
                                     self.toolbar.grid
                                     self.plot = True
-                                    self.maincommand_array = []
-                                    self.maincomName_array = []
+                                    self.maincommand_list = []
+                                    self.maincomName_list = []
                                     for d in range(len(self.main_buttons)):
                                             self.main_buttons[d].configure(relief = tk.RAISED)
-                                    for i in range(len(msg_array)-1):
-                                        coma, comName = msg_array[i+1].split("~")
+                                    for i in range(len(msg_list)-1):
+                                        coma, comName = msg_list[i+1].split("~")
     ##                                    print coma
-                                        self.maincommand_array.append(coma)
+                                        self.maincommand_list.append(coma)
     ##                                    print comName
-                                        self.maincomName_array.append(comName)
+                                        self.maincomName_list.append(comName)
 
-                                        self.main_buttons[i].configure(text=self.maincomName_array[i], command= lambda i=i: self.send(self.maincommand_array[i]))
+                                        self.main_buttons[i].configure(text=self.maincomName_list[i], command= lambda i=i: self.send(self.maincommand_list[i]))
                                         self.main_buttons[i].grid()
 
                                         self.titles.append(comName)
@@ -532,39 +532,36 @@ class GuiPart:
                                     for i in range(len(self.main_buttons)):
                                         self.main_buttons[i].configure(relief = tk.RAISED)
                                     self.main_buttons[tiltlenumber].configure(relief = tk.RIDGE)
-    ##                        print msg_array[0], tiltle
+    ##                        print msg_list[0], tiltle
                         if not self.plot:
-                            for i in range(len(msg_array)-1):
-                                self.scaleActiv_array.append(False)
-                                if msg_array[i+1].find("~ ~") >= 0:
-                                    coma, comName, a, multiplier = msg_array[i+1].split("~")
+                            for i in range(len(msg_list)-1):
+                                self.scaleActiv_list.append(False)
+                                if msg_list[i+1].find("~ ~") >= 0:
+                                    coma, comName, a, multiplier = msg_list[i+1].split("~")
                                     comName, ist , maximum, minimum = comName.split("`")
-                                    self.scaleActiv_array[i] = True
+                                    self.scaleActiv_list[i] = True
 
-                                else:coma, comName = msg_array[i+1].split("~")
+                                else:coma, comName = msg_list[i+1].split("~")
             ##                    print coma
-                                self.command_array.append(coma)
-            ##                    print self.command_array
-                                self.comName_array.append(comName)
-                                self.multiplier_array.append(0.0)
-                                self.minimum_array.append(0)
-                                self.maximum_array.append(0)
-                                self.ist_array.append(0)
+                                self.command_list.append(coma)
+            ##                    print self.command_list
+                                self.comName_list.append(comName)
+                                self.multiplier_list.append(0.0)
+                                self.minimum_list.append(0)
+                                self.maximum_list.append(0)
+                                self.ist_list.append(0)
                                 self.nav_buttons[i].grid()
-                                self.nav_buttons[i].configure(text=comName, command= lambda i=i: self.send(self.command_array[i]))
-                                if self.scaleActiv_array[i] == True:
-                                    self.multiplier_array[i] = float(multiplier)
-                                    self.minimum_array[i] = float(minimum)* self.multiplier_array[i]
-                                    self.maximum_array[i] = float(maximum) * self.multiplier_array[i]
-                                    self.ist_array[i] = float(ist) * self.multiplier_array[i]
-                                    self.scale[i].configure(variable = self.scaleVar[i], resolution=self.multiplier_array[i], from_=self.minimum_array[i], to_= self.maximum_array[i])
+                                self.nav_buttons[i].configure(text=comName, command= lambda i=i: self.send(self.command_list[i]))
+                                if self.scaleActiv_list[i] == True:
+                                    self.multiplier_list[i] = float(multiplier)
+                                    self.minimum_list[i] = float(minimum)* self.multiplier_list[i]
+                                    self.maximum_list[i] = float(maximum) * self.multiplier_list[i]
+                                    self.ist_list[i] = float(ist) * self.multiplier_list[i]
+                                    self.scale[i].configure(variable = self.scaleVar[i], resolution=self.multiplier_list[i], from_=self.minimum_list[i], to_= self.maximum_list[i])
                                     self.scale[i].grid()
-                                    self.scaleVar[i].set(self.ist_array[i])
-                                    self.nav_buttons[i].configure(text=comName, command= lambda i=i: self.send(self.command_array[i], self.scaleVar[i].get()/self.multiplier_array[i]))
+                                    self.scaleVar[i].set(self.ist_list[i])
+                                    self.nav_buttons[i].configure(text=comName, command= lambda i=i: self.send(self.command_list[i], self.scaleVar[i].get()/self.multiplier_list[i]))
             ##                        print "scale ", i
-
-
-
 
             except Queue.Empty:
                 pass
@@ -699,6 +696,7 @@ class ThreadedClient:
                     print "Testing com:",comport
             return com_device, comport
 
+
         print "init"
         com_device = ""
         com = ""
@@ -778,7 +776,7 @@ class ThreadedClient:
                     msg = str(i)+",12,2,0.02,0.10,100,2507,5,1,3,27,25000,0"
 ##                    print "data:", msg
                 if i%2 != 0:
-                    msg = "PerChange 216597"
+                    msg = "Debug string " + str(i)
 ##                    print "dbug:", msg
 
                 if (msg.find("|") == -1) and (msg.find(",") == -1) and (msg.find("{") == -1) and (msg.find("}") == -1):
@@ -836,7 +834,10 @@ class ThreadedClient:
 
 rand = random.Random()
 root = tk.Tk()
-root.iconbitmap(default='Toy.ico')
+if (platform.system() == 'Windows'):
+    root.iconbitmap(default='Toy.ico')
+else:
+    root.iconbitmap('@Toy.xbm')
 root.title('ArdumowerDK')
 root.geometry('+50+10')
 client = ThreadedClient(root)
