@@ -33,18 +33,26 @@ Bluetooth Serial Communication to Ardumower
 #Debug Window  (View/Debug)
 	 ',' or '|' or '{' or '}' should not be used in the debug strings 
 	 since these characters are used for filtering normal communication (commands/plot data) 
+
 	 
+	 
+
 thanks go to:
+Jacob Hallén
 http://code.activestate.com/recipes/82965-threads-tkinter-and-asynchronous-io/
 for the io_threading recipe
 and
+Dan Savilonis
 https://github.com/djs/serialenum
 for a multiplatform serial enumeration possibility
 and
-http://www.daniweb.com/forums/post202523-3.html vegaseat for the ringbuffer
+vegaseat
+http://www.daniweb.com/forums/post202523-3.html 
+for the ringbuffer
 and
-'''Michael Lange <klappnase (at) freakmail (dot) de>
-for the statusbar
+Michael Lange 
+http://tkinter.unpythonic.net/wiki/ProgressMeter
+for the statusbar / class meter
 
 and 
 Sebastian Held and Frederic Goddeeris and the all the active developpers of the Ardumower Project
