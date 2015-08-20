@@ -51,13 +51,13 @@ class GuiPart:
            button = tk.Button(filewin, text="Do nothing button")
            button.pack()
 
-##        self.lastCommand = []
-##        for i in range(100):
-##            self.lastCommand.append(".")
+        self.lastCommand = []
+        for i in range(100):
+            self.lastCommand.append(".")
         ##---------------Menu--------------------------------------------
         menubar = tk.Menu(master)
         filemenu = tk.Menu(menubar, tearoff = 0)
-##        filemenu.add_command(label="New", command=donothing)
+        filemenu.add_command(label="New", command=donothing)
 ##        filemenu.add_command(label="Open", command=donothing)
 ##        filemenu.add_command(label="Save", command=donothing)
 ##        filemenu.add_command(label="Save as...", command=donothing)
@@ -255,16 +255,22 @@ class GuiPart:
         return True
 
     def sendLeft(self,event):
+        self.mainmenu()
         self.send("nl")
     def sendRight(self,event):
+        self.mainmenu()
         self.send("nr")
     def sendUp(self,event):
+        self.mainmenu()
         self.send("nf")
     def sendDown(self,event):
+        self.mainmenu()
         self.send("ns")
     def sendB(self,event):
+        self.mainmenu()
         self.send("nb")
     def sendF1(self,event):
+        self.mainmenu()
         self.send("nm")
     def sendPrior(self,event):
         pass
@@ -624,23 +630,22 @@ class ThreadedClient:
             self.gui_Debug.lift()
             self.gui_Debug.focus_set()
 
-        def hide_Inout():
+        def hide_Debug():
             self.gui_Debug.withdraw()
             master.deiconify()
 
         self.gui = GuiPart(master, self.received_queue, self.send_queue, self.endApplication, openDebug)
         self.gui_Debug = GuiDebug(master, self.received_queueDebug, self.send_queue)
-        self.gui_Debug.protocol("WM_DELETE_WINDOW", hide_Inout)
+        self.gui_Debug.protocol("WM_DELETE_WINDOW", hide_Debug)
+
         # Set up the thread to do asynchronous I/O
         # More can be made if necessary
         self.running = False
     	self.threadI = threading.Thread(target=self.initThread)
         self.master.after(1000,self.threadI.start)
         self.threadR = threading.Thread(target=self.receiveThread)
-##        self.thread2.start()
         self.threadS = threading.Thread(target=self.sendThread)
-##        self.thread3.start()
-        self.threadIN = threading.Thread(target=self.gui.processIncoming)
+
         # Start the periodic call in the GUI to check if the queue contains
         # anything
         self.master.after(1000,self.periodicCall)
