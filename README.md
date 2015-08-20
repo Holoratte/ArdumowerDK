@@ -34,9 +34,10 @@ Bluetooth Serial Communication to Ardumower
 	 ',' or '|' or '{' or '}' should not be used in the debug strings 
 	 since these characters are used for filtering normal communication (commands/plot data) 
 
-	 
-	 
 
+#use at your own risk
+
+	 
 thanks go to:
 Jacob Hallén
 http://code.activestate.com/recipes/82965-threads-tkinter-and-asynchronous-io/
@@ -57,3 +58,5 @@ for the statusbar / class meter
 and 
 Sebastian Held and Frederic Goddeeris and the all the active developpers of the Ardumower Project
 http://ardumower.de
+
+and as always: thanks for all the fish
