@@ -40,6 +40,12 @@ for the io_threading recipe
 and
 https://github.com/djs/serialenum
 for a multiplatform serial enumeration possibility
+and
+http://www.daniweb.com/forums/post202523-3.html vegaseat for the ringbuffer
+and
+'''Michael Lange <klappnase (at) freakmail (dot) de>
+for the statusbar
 
-and Sebastian Held and Frederic Goddeeris and the all the active developpers of the Ardumower Project
+and 
+Sebastian Held and Frederic Goddeeris and the all the active developpers of the Ardumower Project
 http://ardumower.de
