@@ -239,9 +239,9 @@ class GuiPart:
                     self.ax[channel].set_ylim(self.lo[dnumber], self.hi[dnumber])
 
                     self.master.after_idle(self.ax[channel].figure.canvas.draw)
-                    for i in range(len(self.plotnumbers)):
+                    for i in range(self.canvasnumber):
                         self.master.after_idle(self.ax[i].draw_artist,self.lines[i])
-                    for i in range(len(self.plotnumbers)):
+                    for i in range(self.canvasnumber):
                         self.master.after_idle(self.canvas[i].blit,self.ax[i].bbox)
 
 
