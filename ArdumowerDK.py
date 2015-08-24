@@ -42,9 +42,10 @@ from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 import platform
+import serialenum
 
 class GuiPart:
-    def __init__(self, master, receivedQueue, sendQueue, endCommand, Debug):
+    def __init__(self, master, receivedQueue, sendQueue, endCommand, Debug, Com):
         self.master = master
         def donothing():
            filewin = tk.Toplevel(master)
@@ -83,7 +84,7 @@ class GuiPart:
 
         viewmenu = tk.Menu(menubar, tearoff=0)
         viewmenu.add_command(label="Debug", command=Debug)
-##        viewmenu.add_command(label="", command=donothing)
+        viewmenu.add_command(label="Connect", command=Com)
 ##        viewmenu.add_command(label="", command=donothing)
 ##        viewmenu.add_command(label="", command=donothing)
         menubar.add_cascade(label="View", menu=viewmenu)
@@ -150,7 +151,7 @@ class GuiPart:
             self.scale[i].grid_remove()
 
 #        -----------------------------------Plot---------------------------
-        self.canvasnumber =6
+        self.canvasnumber =5
         self.plot = False
         self.channel = 0
         self.f = Figure()
@@ -184,7 +185,7 @@ class GuiPart:
             self.ax.append(self.f.add_subplot(11+i+(self.canvasnumber*100)))
             self.lines.append(Line2D(self.tdata, self.data, animated=True))
             self.ax[i].add_line(self.lines[i])
-            self.ax[i].set_ylim(-10, 255)
+            self.ax[i].set_ylim(-10.1, 255.0)
             self.ax[i].set_xlim(1, 300)
             self.ax[i].set_xlabel(self.plotxlabels[i])
             self.ax[i].set_ylabel(self.plotylabels[i])
@@ -320,7 +321,7 @@ class GuiPart:
             for lo in self.lo:
                 lo = 0.0
             for hi in self.hi:
-                hi = -1
+                hi = -1.0
             self.plotnumbers.sort()
 
     ##        print self.plotnumbers
@@ -519,7 +520,7 @@ class GuiPart:
                                     self.titles=[]
 
                                     self.c.get_tk_widget().grid()
-                                    self.toolbar.grid
+                                    self.toolbar.grid()
                                     self.plot = True
                                     self.maincommand_list = []
                                     self.maincomName_list = []
@@ -604,6 +605,57 @@ class GuiDebug(tk.Toplevel):
         self.autoscroll_checkbutton.grid(column = 3, row = 7)
         self.withdraw()
 
+class GuiConnect(tk.Toplevel):
+    def __init__(self, master,initQueue):
+        tk.Toplevel.__init__(self)
+        self.initQueue = initQueue
+        self.master = master
+        self.title("Connection")
+        self.geometry('+300+10')
+        self.connection_entry_var=tk.StringVar()
+        self.connection_entry = tk.Entry(self, textvariable = self.connection_entry_var)
+        self.connection_entry.grid(column = 3, row =4)
+        self.options_var=tk.StringVar()
+        self.connection_options = serialenum.enumerate()
+##        self.connection_options.append("Network")
+        self.connection_options.append("")
+        self.options_var.set(self.connection_options[-1])
+        self.options = apply(tk.OptionMenu,(self,self.options_var)+tuple(self.connection_options))
+        self.options.grid(column = 3, row = 5)
+        self.___entry_in_var=tk.StringVar()
+        self.___entry_in = tk.Entry(self, textvariable = self.___entry_in_var)
+##        self.___entry_in.grid(column = 3, row =5, sticky="nesw")
+##        self.___text = tk.Text(self,width=100, height = 20)
+##        self.___entry_var.set("")
+##        self.___text_scrollbar = tk.Scrollbar(self)
+##        self.___text.config(yscrollcommand=self.debug_text_scrollbar.set)
+##        self.___text_scrollbar.config(command=self.debug_text.yview)
+##        self.___text.grid(row=6,column=3,sticky="nesw")
+##        self.___text_scrollbar.grid(row=6,column=3,sticky="nesw")
+        def connect_command():
+            def IPadress():
+               filewin = tk.Toplevel(master)
+               button = tk.Button(filewin, text="Do nothing button")
+               button.pack()
+
+            if self.options_var.get() != "": self.connection_entry_var.set(str(self.options_var.get()))
+            if self.autodetect_checkbutton_var.get() == 1: autodetect = True
+            else: autodetect = False
+            com_device = self.connection_entry_var.get()
+            print com_device
+            msg = autodetect,com_device
+            if self.options_var.get() == "Network":
+                IPadress()
+            else:
+                self.initQueue.put(msg)
+        self.connectbutton = tk.Button(self, text='Connect', command= connect_command)
+        self.connectbutton.grid(column = 3, row =4, sticky = "e")
+        self.autodetect_checkbutton_var = tk.IntVar()
+        self.autodetect_checkbutton_var.set(1)
+        self.autodetect_checkbutton = tk.Checkbutton(self, text = "Autodetect", variable = self.autodetect_checkbutton_var)
+        if (platform.system() == 'Windows'):self.autodetect_checkbutton.grid(column = 3, row = 7)
+##        self.withdraw()
+
 
 class ThreadedClient:
     """
@@ -624,6 +676,7 @@ class ThreadedClient:
         self.received_queue = Queue.Queue()
         self.received_queueDebug = Queue.Queue()
         self.send_queue = Queue.Queue()
+        self.init_Queue = Queue.Queue()
         # Set up the GUI part
         def openDebug():
             self.gui_Debug.deiconify()
@@ -634,10 +687,20 @@ class ThreadedClient:
             self.gui_Debug.withdraw()
             master.deiconify()
 
-        self.gui = GuiPart(master, self.received_queue, self.send_queue, self.endApplication, openDebug)
+        def openCom():
+            self.gui_com.deiconify()
+            self.gui_com.lift()
+            self.gui_com.focus_set()
+
+        def hide_Com():
+            self.gui_com.withdraw()
+            master.deiconify()
+
+        self.gui = GuiPart(master, self.received_queue, self.send_queue, self.endApplication, openDebug, openCom)
         self.gui_Debug = GuiDebug(master, self.received_queueDebug, self.send_queue)
         self.gui_Debug.protocol("WM_DELETE_WINDOW", hide_Debug)
-
+        self.gui_com = GuiConnect(master, self.init_Queue)
+        self.gui_com.protocol("WM_DELETE_WINDOW", hide_Com)
         # Set up the thread to do asynchronous I/O
         # More can be made if necessary
         self.running = False
@@ -649,6 +712,8 @@ class ThreadedClient:
         # Start the periodic call in the GUI to check if the queue contains
         # anything
         self.master.after(1000,self.periodicCall)
+        self.init_com = True
+
 
     def periodicCall(self):
         """
@@ -681,14 +746,13 @@ class ThreadedClient:
         One important thing to remember is that the thread has to yield
         control.
         """
-
         def scan_comport(com_exclude = None):
             com_device = None
             comport = "1"
             while com_device == None and int(comport) <= 50:
                 if comport not in com_exclude:
                     try:
-                        com_device = serial.Serial("com" + comport, baudrate=115200, writeTimeout = 100)
+                        com_device = serial.Serial("com" + comport, baudrate=19200, writeTimeout = 100000)
                         print "Testing com:",comport
                     except:
                         if int(comport) <= 49:
@@ -706,34 +770,72 @@ class ThreadedClient:
             return com_device, comport
 
 
-        print "init"
+##        print "init"
         com_device = ""
         com = ""
         com_exclude = []
+        while self.init_com:
 
-        while com_device != None and self.running == False:
-            com_device, com = scan_comport(com_exclude)
-##            time.sleep(0.1)
-            if com_device != None:
-                com_device.write("{.}")
-                time.sleep(0.5)
-                while com_device.inWaiting() != 0 and self.running == False:
-                    muC = com_device.readline()
-##                    print muC
-                    if muC.find("Ardumower") >= 0:
-                        print"found Ardumower"
-                        self.Ardumower = com_device
-                        msg = muC + "init"
-                        self.received_queue.put(msg)
-                        msg = ""
-                        self.running = True
 
-                        self.threadR.start()
-                        self.threadS.start()
-            com_exclude.append(com)
-        if not self.running:
-            self.threadR.start()
-            self.threadS.start()
+            if self.init_Queue.qsize():
+                try:
+                        # Check contents of message and do what it says
+                        #
+                    msg = self.init_Queue.get(0)
+##                    print msg
+                    autodetect, com = msg
+##                    if self.running:
+##                        com_device.close()
+
+                    if autodetect and  (platform.system() == 'Windows'):
+                        while com_device != None and self.running == False:
+                            com_device, com = scan_comport(com_exclude)
+                ##            time.sleep(0.1)
+                            if com_device != None:
+                                com_device.write("{.}")
+                                time.sleep(0.5)
+                                while com_device.inWaiting() != 0 and self.running == False:
+                                    muC = com_device.readline()
+                ##                    print muC
+                                    if muC.find("Ardumower") >= 0:
+                                        print"found Ardumower"
+                                        self.Ardumower = com_device
+                                        msg = muC + "init"
+                                        print msg
+                                        self.received_queue.put(msg)
+                                        msg = ""
+                                        self.running = True
+
+                                        self.threadR.start()
+                                        self.threadS.start()
+                                        self.gui_com.connectbutton.configure(state =  tk.DISABLED)
+                            com_exclude.append(com)
+                    elif com != "":
+                        com_device = serial.Serial(com, baudrate=19200, writeTimeout = 10000)
+                        if com_device != None:
+                            com_device.write("{.}")
+                            time.sleep(0.5)
+                            while com_device.inWaiting() != 0 and self.running == False:
+                                muC = com_device.readline()
+            ##                    print muC
+                                if muC.find("Ardumower") >= 0:
+                                    print"found Ardumower"
+                                    self.Ardumower = com_device
+                                    msg = muC + "init"
+                                    self.received_queue.put(msg)
+                                    msg = ""
+                                    self.running = True
+
+                                    self.threadR.start()
+                                    self.threadS.start()
+                                    self.gui_com.connectbutton.configure(state =  tk.DISABLED)
+##                                else: print "Failed to connect to Device"
+
+                except Queue.Empty:
+                    pass
+##        if not self.running:
+##            self.threadR.start()
+##            self.threadS.start()
 
     def receiveThread(self):
         """
@@ -829,6 +931,7 @@ class ThreadedClient:
 
 
     def endApplication(self):
+        self.init_com = False
         if self.running:
             if tkMessageBox.askokcancel("Quit", "Do you really wish to quit?"):
                 self.running = False

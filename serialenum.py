@@ -5,6 +5,7 @@ from serial import Serial
 import sys
 
 
+
 def enumerate():
 ##    print "enu"
     ports = []
@@ -25,6 +26,7 @@ def enumerate():
                 i = i + 1
             except WindowsError:
                 break
+        return ports
     elif sys.platform == 'linux2':
         if os.path.exists('/dev/serial/by-id'):
             entries = os.listdir('/dev/serial/by-id')
@@ -40,6 +42,7 @@ def enumerate():
                 pass
             else:
                 ports.append(dev)
+        return ports
 
     else:
         return []
