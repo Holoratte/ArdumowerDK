@@ -613,17 +613,22 @@ class GuiConnect(tk.Toplevel):
         self.title("Connection")
         self.geometry('+300+10')
         self.connection_entry_var=tk.StringVar()
-        self.connection_entry = tk.Entry(self, textvariable = self.connection_entry_var)
+        self.connection_entry = tk.Entry(self, textvariable = self.connection_entry_var, width = 50)
         self.connection_entry.grid(column = 3, row =4)
         self.options_var=tk.StringVar()
-        self.connection_options = serialenum.enumerate()
+        self.connection_options = []
+        def scan():
+            self.connection_options = []
+            self.connection_options = serialenum.enumerate()
 ##        self.connection_options.append("Network")
-        self.connection_options.append("")
-        self.options_var.set(self.connection_options[-1])
+            self.connection_options.append("")
+            self.options_var.set(self.connection_options[-1])
+
+        scan()
         self.options = apply(tk.OptionMenu,(self,self.options_var)+tuple(self.connection_options))
-        self.options.grid(column = 3, row = 5)
-        self.___entry_in_var=tk.StringVar()
-        self.___entry_in = tk.Entry(self, textvariable = self.___entry_in_var)
+        self.options.grid(column = 3, row = 5, sticky = "w")
+##        self.___entry_in_var=tk.StringVar()
+##        self.___entry_in = tk.Entry(self, textvariable = self.___entry_in_var)
 ##        self.___entry_in.grid(column = 3, row =5, sticky="nesw")
 ##        self.___text = tk.Text(self,width=100, height = 20)
 ##        self.___entry_var.set("")
@@ -642,14 +647,24 @@ class GuiConnect(tk.Toplevel):
             if self.autodetect_checkbutton_var.get() == 1: autodetect = True
             else: autodetect = False
             com_device = self.connection_entry_var.get()
-            print com_device
+##            print com_device
             msg = autodetect,com_device
             if self.options_var.get() == "Network":
                 IPadress()
             else:
                 self.initQueue.put(msg)
+
+        def disconnect_command():
+            msg = True, "disconnect"
+            self.initQueue.put(msg)
+
+
+        self.scanbutton = tk.Button(self, text='Rescan', command = scan)
+        self.scanbutton.grid(column = 3, row = 5, sticky = "e")
         self.connectbutton = tk.Button(self, text='Connect', command= connect_command)
-        self.connectbutton.grid(column = 3, row =4, sticky = "e")
+        self.connectbutton.grid(column = 3, row =4, sticky = "w")
+        self.disconnectbutton = tk.Button(self, text='Disconnect', command= disconnect_command, state = tk.DISABLED)
+        self.disconnectbutton.grid(column = 3, row =4, sticky = "e")
         self.autodetect_checkbutton_var = tk.IntVar()
         self.autodetect_checkbutton_var.set(1)
         self.autodetect_checkbutton = tk.Checkbutton(self, text = "Autodetect", variable = self.autodetect_checkbutton_var)
@@ -677,6 +692,7 @@ class ThreadedClient:
         self.received_queueDebug = Queue.Queue()
         self.send_queue = Queue.Queue()
         self.init_Queue = Queue.Queue()
+        self.receive_connected_queue = Queue.Queue()
         # Set up the GUI part
         def openDebug():
             self.gui_Debug.deiconify()
@@ -703,16 +719,21 @@ class ThreadedClient:
         self.gui_com.protocol("WM_DELETE_WINDOW", hide_Com)
         # Set up the thread to do asynchronous I/O
         # More can be made if necessary
-        self.running = False
+        self.running = True
+        self.connected = False
+        self.init_com = True
     	self.threadI = threading.Thread(target=self.initThread)
         self.master.after(1000,self.threadI.start)
         self.threadR = threading.Thread(target=self.receiveThread)
         self.threadS = threading.Thread(target=self.sendThread)
+        self.threadR.start()
+        self.threadS.start()
+
 
         # Start the periodic call in the GUI to check if the queue contains
         # anything
         self.master.after(1000,self.periodicCall)
-        self.init_com = True
+
 
 
     def periodicCall(self):
@@ -746,34 +767,36 @@ class ThreadedClient:
         One important thing to remember is that the thread has to yield
         control.
         """
-        def scan_comport(com_exclude = None):
-            com_device = None
-            comport = "1"
-            while com_device == None and int(comport) <= 50:
+        def scan_comport(com_exclude):
+            com_device = ""
+            comport = 1
+            while com_device == "" and comport <= 50:
                 if comport not in com_exclude:
                     try:
-                        com_device = serial.Serial("com" + comport, baudrate=19200, writeTimeout = 100000)
+                        com_device = serial.Serial("com" + str(comport), baudrate=19200, writeTimeout = 100000)
                         print "Testing com:",comport
                     except:
                         if int(comport) <= 49:
-                            comport = str(int(comport) + 1)
-##                            print comport
+                            comport += 1
+                            print comport
                         else:
-                            com_device = None
+                            com_device = ""
                             print "Failed to connect to Device"
                             connected = False
-##                            print comport
+                            print comport
                             comport ="51"
                 else:
-                    comport = str(int(comport) + 1)
+                    comport += 1
                     print "Testing com:",comport
+##            comport =1
             return com_device, comport
 
 
 ##        print "init"
         com_device = ""
-        com = ""
+        com = 0
         com_exclude = []
+        connected = False
         while self.init_com:
 
 
@@ -782,53 +805,73 @@ class ThreadedClient:
                         # Check contents of message and do what it says
                         #
                     msg = self.init_Queue.get(0)
-##                    print msg
-                    autodetect, com = msg
-##                    if self.running:
-##                        com_device.close()
+                    print msg
+                    autodetect, msg = msg
 
-                    if autodetect and  (platform.system() == 'Windows'):
-                        while com_device != None and self.running == False:
+                    if (msg == "disconnect") and autodetect:
+                        self.receive_connected_queue.put("disconnected")
+                        self.gui_com.connectbutton.configure(state =  tk.NORMAL)
+                        self.gui_com.disconnectbutton.configure(state =  tk.DISABLED)
+                        connected = False
+                        try:
+                            self.Ardumower.close()
+                        except:
+                            print "port cannot close"
+
+
+                    elif autodetect and  (platform.system() == 'Windows'):
+                        print "autodetect"
+                        while com_device == "" and connected == False and com <=49:
                             com_device, com = scan_comport(com_exclude)
+                            print com_device, com
                 ##            time.sleep(0.1)
-                            if com_device != None:
+                            if com_device != "":
                                 com_device.write("{.}")
                                 time.sleep(0.5)
-                                while com_device.inWaiting() != 0 and self.running == False:
+                                while com_device.inWaiting() != 0 and connected == False:
                                     muC = com_device.readline()
-                ##                    print muC
+                                    print "muC",muC
                                     if muC.find("Ardumower") >= 0:
                                         print"found Ardumower"
                                         self.Ardumower = com_device
-                                        msg = muC + "init"
-                                        print msg
-                                        self.received_queue.put(msg)
+                                        ms = muC + "init"
+                                        print ms
+                                        self.received_queue.put(ms)
+                                        self.receive_connected_queue.put("connected")
+                                        self.send_queue.put("connected")
                                         msg = ""
-                                        self.running = True
-
-                                        self.threadR.start()
-                                        self.threadS.start()
+                                        autodetect = False
+                                        com_exclude = []
+                                        com = 0
                                         self.gui_com.connectbutton.configure(state =  tk.DISABLED)
+                                        self.gui_com.disconnectbutton.configure(state =  tk.NORMAL)
+                                        connected = True
+                                com_device = ""
                             com_exclude.append(com)
-                    elif com != "":
-                        com_device = serial.Serial(com, baudrate=19200, writeTimeout = 10000)
-                        if com_device != None:
+                            print com_exclude, self.connected
+                            print "com_device", com_device
+
+                    elif msg != "":
+                        com_device = serial.Serial(msg, baudrate=19200, writeTimeout = 10000)
+                        if com_device != "":
+                            print com_device
                             com_device.write("{.}")
                             time.sleep(0.5)
-                            while com_device.inWaiting() != 0 and self.running == False:
+                            while com_device.inWaiting() != 0 and self.connected == False:
                                 muC = com_device.readline()
-            ##                    print muC
+                                print muC
                                 if muC.find("Ardumower") >= 0:
                                     print"found Ardumower"
                                     self.Ardumower = com_device
-                                    msg = muC + "init"
-                                    self.received_queue.put(msg)
+                                    ms = muC + "init"
+                                    print ms
+                                    self.receive_connected_queue.put("connected")
+                                    self.send_queue.put("connected")
+                                    self.received_queue.put(ms)
                                     msg = ""
-                                    self.running = True
-
-                                    self.threadR.start()
-                                    self.threadS.start()
                                     self.gui_com.connectbutton.configure(state =  tk.DISABLED)
+                                    self.gui_com.disconnectbutton.configure(state =  tk.NORMAL)
+                                    self.connected = True
 ##                                else: print "Failed to connect to Device"
 
                 except Queue.Empty:
@@ -845,14 +888,26 @@ class ThreadedClient:
         control.
         """
         msg = ""
-        if self.running: Mower = self.Ardumower
+        connected = False
         while self.running:
             # To simulate asynchronous I/O, we create a random number at
             # random intervals. Replace the following 2 lines with the real
             # thing.
-            if Mower.inWaiting() != 0:
+            if  self.receive_connected_queue.qsize():
+                try:
+                        # Check contents of message and do what it says
+                        #
+                    msg = self.receive_connected_queue.get(0)
+                    if msg == "connected":
+                        connected = True
+                        mower = self.Ardumower
+                    elif msg == "disconnected": connected = False
+                except Queue.Empty:
+                    pass
 
-                msg += Mower.readline()
+            if connected and  mower.inWaiting() != 0:
+
+                msg += mower.readline()
 
 
                 if (msg.find("|") == -1) and (msg.find(",") == -1) and (msg.find("{") == -1) and (msg.find("}") == -1):
@@ -870,37 +925,38 @@ class ThreadedClient:
 
 
         if self.running == False:
-            msg = "{.Ardumower (Ardumower)|r~Commands|n~Manual|s~Settings|in~Info|c~Test compass|m1~Log sensors|yp~Plot|y4~Error counters|y9~ADC calibration}init"
-            self.received_queue.put(msg)
-##            msg = "{.Commands`5000|ro~OFF|ra~Auto mode|rc~RC mode|rm~Mowing is OFF|rp~Pattern is RAND|rh~Home|rk~Track|rs~State is OFF |rr~Auto rotate is 0.00|r1~User switch 1 is OFF|r2~User switch 2 is OFF|r3~User switch 3 is OFF}"
-####            msg = "|nl~Left|nr~Right|nf~Forward|nb~Reverse|nm~Mow is OFF}"
-####            msg = "{.Mow`1000|o00~Overload Counter 0|o01~Power in Watt 0.00|o11~current in mA 0.00|o02~Power max `1000`1000`0~ ~0.1|o03~calibrate mow motor  `0`3000`0~ ~1|o04~Speed 0.00|o05~Speed max `255`255`0~ ~1|o06~Modulate NO|o07~RPM 0|o08~RPM set `3300`4500`0~ ~1|o09p~RPM_P `0`100`0~ ~0.01|o09i~RPM_I `1`100`0~ ~0.01|o09d~RPM_D `1`100`0~ ~0.01|o10~Testing is OFF|o04~for config file: motorMowSenseScale:15.30}"
-            time.sleep(5)
-            msg = "{.Plot|y7~Sensors|y5~Sensor counters|y3~IMU|y6~Perimeter|y8~GPS|y1~Battery|y2~Odometry2D|y11~Motor control|y10~GPS2D}"
-            self.received_queue.put(msg)
-            msg ="{=Sensors`300|time s`0|state`1|motL`2|motR`3|motM`4|sonL`5|sonC`6|sonR`7|peri`8|lawn`9|rain`10|dropL`11|dropR`12}"
-            time.sleep(5)
-            self.received_queue.put(msg)
-            for i in range(1000):
-                time.sleep(0.5)
-                if i%2 == 0 :
-                    msg = str(i)+",12,2,0.02,0.10,100,2507,5,1,3,27,25000,0"
-##                    print "data:", msg
-                if i%2 != 0:
-                    msg = "Debug string " + str(i)
-##                    print "dbug:", msg
-
-                if (msg.find("|") == -1) and (msg.find(",") == -1) and (msg.find("{") == -1) and (msg.find("}") == -1):
-                    self.received_queueDebug.put(msg)
-                    msg = ""
-                elif not msg.find("{")>= 0:
-                    self.received_queue.put(msg)
-##                    print msg
-                    msg = ""
-                elif msg.find("}")>= 0:
-                    self.received_queue.put(msg)
-##                    print msg
-                    msg = ""
+            pass
+##            msg = "{.Ardumower (Ardumower)|r~Commands|n~Manual|s~Settings|in~Info|c~Test compass|m1~Log sensors|yp~Plot|y4~Error counters|y9~ADC calibration}init"
+##            self.received_queue.put(msg)
+####            msg = "{.Commands`5000|ro~OFF|ra~Auto mode|rc~RC mode|rm~Mowing is OFF|rp~Pattern is RAND|rh~Home|rk~Track|rs~State is OFF |rr~Auto rotate is 0.00|r1~User switch 1 is OFF|r2~User switch 2 is OFF|r3~User switch 3 is OFF}"
+######            msg = "|nl~Left|nr~Right|nf~Forward|nb~Reverse|nm~Mow is OFF}"
+######            msg = "{.Mow`1000|o00~Overload Counter 0|o01~Power in Watt 0.00|o11~current in mA 0.00|o02~Power max `1000`1000`0~ ~0.1|o03~calibrate mow motor  `0`3000`0~ ~1|o04~Speed 0.00|o05~Speed max `255`255`0~ ~1|o06~Modulate NO|o07~RPM 0|o08~RPM set `3300`4500`0~ ~1|o09p~RPM_P `0`100`0~ ~0.01|o09i~RPM_I `1`100`0~ ~0.01|o09d~RPM_D `1`100`0~ ~0.01|o10~Testing is OFF|o04~for config file: motorMowSenseScale:15.30}"
+##            time.sleep(5)
+##            msg = "{.Plot|y7~Sensors|y5~Sensor counters|y3~IMU|y6~Perimeter|y8~GPS|y1~Battery|y2~Odometry2D|y11~Motor control|y10~GPS2D}"
+##            self.received_queue.put(msg)
+##            msg ="{=Sensors`300|time s`0|state`1|motL`2|motR`3|motM`4|sonL`5|sonC`6|sonR`7|peri`8|lawn`9|rain`10|dropL`11|dropR`12}"
+##            time.sleep(5)
+##            self.received_queue.put(msg)
+##            for i in range(1000):
+##                time.sleep(0.5)
+##                if i%2 == 0 :
+##                    msg = str(i)+",12,2,0.02,0.10,100,2507,5,1,3,27,25000,0"
+####                    print "data:", msg
+##                if i%2 != 0:
+##                    msg = "Debug string " + str(i)
+####                    print "dbug:", msg
+##
+##                if (msg.find("|") == -1) and (msg.find(",") == -1) and (msg.find("{") == -1) and (msg.find("}") == -1):
+##                    self.received_queueDebug.put(msg)
+##                    msg = ""
+##                elif not msg.find("{")>= 0:
+##                    self.received_queue.put(msg)
+####                    print msg
+##                    msg = ""
+##                elif msg.find("}")>= 0:
+##                    self.received_queue.put(msg)
+####                    print msg
+##                    msg = ""
 
     def sendThread(self):
         """
@@ -909,14 +965,18 @@ class ThreadedClient:
         One important thing to remember is that the thread has to yield
         control.
         """
-        if self.running: Mower = self.Ardumower
+        connected = False
         while self.running:
-            if self.send_queue.qsize():
+            if  self.send_queue.qsize():
                 try:
                         # Check contents of message and do what it says
                         #
                     msg = self.send_queue.get(0)
-                    Mower.write("{" + msg + "}" + "\n")
+                    if msg == "connected":
+                        connected = True
+                        mower = self.Ardumower
+                    elif msg == "disconnected": connected = False
+                    elif connected: mower.write("{" + msg + "}" + "\n")
                 except Queue.Empty:
                     pass
 ##        while self.running == False:
@@ -942,7 +1002,7 @@ class ThreadedClient:
             self.master.destroy()
 
     def close_com(self):
-        self.Ardumower.close()
+        if self.gui_com.connectbutton.cget("state") == tk.DISABLED: self.Ardumower.close()
 
 rand = random.Random()
 root = tk.Tk()
