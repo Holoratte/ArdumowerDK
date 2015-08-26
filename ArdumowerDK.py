@@ -614,7 +614,7 @@ class GuiConnect(tk.Toplevel):
         self.geometry('+300+10')
         self.connection_entry_var=tk.StringVar()
         self.connection_entry = tk.Entry(self, textvariable = self.connection_entry_var, width = 50)
-        self.connection_entry.grid(column = 3, row =4)
+        self.connection_entry.grid(column = 3, row =0)
         self.options_var=tk.StringVar()
         self.connection_options = []
         def scan():
@@ -623,10 +623,10 @@ class GuiConnect(tk.Toplevel):
 ##        self.connection_options.append("Network")
             self.connection_options.append("")
             self.options_var.set(self.connection_options[-1])
+            self.options = apply(tk.OptionMenu,(self,self.options_var)+tuple(self.connection_options))
+            self.options.grid(column = 3, row = 5, sticky = "w")
 
         scan()
-        self.options = apply(tk.OptionMenu,(self,self.options_var)+tuple(self.connection_options))
-        self.options.grid(column = 3, row = 5, sticky = "w")
 ##        self.___entry_in_var=tk.StringVar()
 ##        self.___entry_in = tk.Entry(self, textvariable = self.___entry_in_var)
 ##        self.___entry_in.grid(column = 3, row =5, sticky="nesw")
@@ -643,7 +643,7 @@ class GuiConnect(tk.Toplevel):
                button = tk.Button(filewin, text="Do nothing button")
                button.pack()
 
-            if self.options_var.get() != "": self.connection_entry_var.set(str(self.options_var.get()))
+            self.connection_entry_var.set(str(self.options_var.get()))
             if self.autodetect_checkbutton_var.get() == 1: autodetect = True
             else: autodetect = False
             com_device = self.connection_entry_var.get()
