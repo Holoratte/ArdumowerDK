@@ -871,7 +871,7 @@ class ThreadedClient:
                                     msg = ""
                                     self.gui_com.connectbutton.configure(state =  tk.DISABLED)
                                     self.gui_com.disconnectbutton.configure(state =  tk.NORMAL)
-                                    self.connected = True
+                                    connected = True
 ##                                else: print "Failed to connect to Device"
 
                 except Queue.Empty:
