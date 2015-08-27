@@ -946,7 +946,7 @@ class ThreadedClient:
                         self.received_queue.put(msg)
     ##                    print msg
                         msg = ""
-                except SerialException:
+                except serial.SerialException:
                     self.connected_queue.put("disconnected")
                     pass
 
@@ -1003,7 +1003,12 @@ class ThreadedClient:
                         connected = True
                         mower = self.Ardumower
                     elif msg == "disconnected": connected = False
-                    elif connected: mower.write("{" + msg + "}" + "\n")
+                    elif connected:
+                        try:
+                            mower.write("{" + msg + "}" + "\n")
+                        except serial.SerialException:
+                            self.connected_queue.put("disconnected")
+                            pass
                 except Queue.Empty:
                     pass
 ##        while self.running == False:
