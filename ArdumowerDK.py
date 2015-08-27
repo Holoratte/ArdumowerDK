@@ -1,13 +1,13 @@
 ﻿#-------------------------------------------------------------------------------
 # Name:        Ardumower DK
-# Purpose:     Communication Ardumower - Windows computer via Bluetooth
+# Purpose:     Communication Ardumower - Windows computer via Bluetooth serial por
 #
 # Author:      Holoratte
 #
-# Created:     19.08.2015
+# Created:     27.08.2015
 # Copyright:   (c) Holoratte 2015
 # Licence:     Just use it. Selling this software might be prohibited.
-#
+# Version:     14
 #-------------------------------------------------------------------------------
 
 """
@@ -47,15 +47,18 @@ import serialenum
 class GuiPart:
     def __init__(self, master, receivedQueue, sendQueue, endCommand, Debug, Com):
         self.master = master
+        self.lastCommand = []
+        for i in range(100):
+            self.lastCommand.append(".")
+
+            # Set up the GUI
+
+        #---------------Menu--------------------------------------------
         def donothing():
            filewin = tk.Toplevel(master)
            button = tk.Button(filewin, text="Do nothing button")
            button.pack()
 
-        self.lastCommand = []
-        for i in range(100):
-            self.lastCommand.append(".")
-        ##---------------Menu--------------------------------------------
         menubar = tk.Menu(master)
         filemenu = tk.Menu(menubar, tearoff = 0)
         filemenu.add_command(label="New", command=donothing)
@@ -102,12 +105,10 @@ class GuiPart:
 
         master.config(menu=menubar)
 
-        #---------------------Menu End----------------------------------------------------------
 
+        #--------------------Buttons and scalebars----------------------------------------------
         self.RQueue = receivedQueue
         self.SQueue = sendQueue
-
-        # Set up the GUI
 
         self.console1 = tk.Button(master, text='Main', command= self.mainmenu)
         self.console1.grid(column = 0, row =0)
@@ -164,10 +165,12 @@ class GuiPart:
         self.data = [0]
         self.lo = []
         self.hi = []
+
         for i in range(50):
             self.lo.append(0.0)
             self.hi.append(0.0)
             self.plotnames.append("value")
+
         self.canvas = []
         self.backgrounds = []
         self.c=FigureCanvasTkAgg(self.f, master=master)
@@ -177,8 +180,8 @@ class GuiPart:
         self.toolbar.grid(column=10, row=30, sticky="w")
         self.toolbar.update()
         self.canvas = []
-        for i in range(self.canvasnumber):
 
+        for i in range(self.canvasnumber):
             self.backgrounds.append(None)
             self.plotxlabels.append("Time")
             self.plotylabels.append(self.plotnames[i])
@@ -191,8 +194,10 @@ class GuiPart:
             self.ax[i].set_ylabel(self.plotylabels[i])
             self.ax[i].yaxis.set_major_formatter(FormatStrFormatter('%d'))
             self.canvas.append(self.ax[i].figure.canvas)
+
         self.c.mpl_connect('draw_event',self.update_background)
         self.f.subplots_adjust(hspace=0.1)
+
         for a in self.f.axes[:-1]:
             a.set_xlabel("")
             a.set_xticks([])
@@ -208,7 +213,9 @@ class GuiPart:
         self.idle_flag = True
         self.idle1_flag = True
 
+
         # Add more GUI stuff here
+
         master.bind('<Escape>', self.sendoff)
         master.bind('<Left>', self.sendLeft)
         master.bind('<Right>', self.sendRight)
@@ -606,7 +613,7 @@ class GuiDebug(tk.Toplevel):
         self.withdraw()
 
 class GuiConnect(tk.Toplevel):
-    def __init__(self, master,initQueue):
+    def __init__(self, master,initQueue, close_com):
         tk.Toplevel.__init__(self)
         self.initQueue = initQueue
         self.master = master
@@ -643,7 +650,7 @@ class GuiConnect(tk.Toplevel):
                button = tk.Button(filewin, text="Do nothing button")
                button.pack()
 
-            self.connection_entry_var.set(str(self.options_var.get()))
+            if self.options_var.get() != "": self.connection_entry_var.set(str(self.options_var.get()))
             if self.autodetect_checkbutton_var.get() == 1: autodetect = True
             else: autodetect = False
             com_device = self.connection_entry_var.get()
@@ -654,16 +661,14 @@ class GuiConnect(tk.Toplevel):
             else:
                 self.initQueue.put(msg)
 
-        def disconnect_command():
-            msg = True, "disconnect"
-            self.initQueue.put(msg)
+
 
 
         self.scanbutton = tk.Button(self, text='Rescan', command = scan)
         self.scanbutton.grid(column = 3, row = 5, sticky = "e")
         self.connectbutton = tk.Button(self, text='Connect', command= connect_command)
         self.connectbutton.grid(column = 3, row =4, sticky = "w")
-        self.disconnectbutton = tk.Button(self, text='Disconnect', command= disconnect_command, state = tk.DISABLED)
+        self.disconnectbutton = tk.Button(self, text='Disconnect', command= close_com, state = tk.DISABLED)
         self.disconnectbutton.grid(column = 3, row =4, sticky = "e")
         self.autodetect_checkbutton_var = tk.IntVar()
         self.autodetect_checkbutton_var.set(1)
@@ -693,6 +698,7 @@ class ThreadedClient:
         self.send_queue = Queue.Queue()
         self.init_Queue = Queue.Queue()
         self.receive_connected_queue = Queue.Queue()
+        self.connected_queue = Queue.Queue()
         # Set up the GUI part
         def openDebug():
             self.gui_Debug.deiconify()
@@ -715,7 +721,7 @@ class ThreadedClient:
         self.gui = GuiPart(master, self.received_queue, self.send_queue, self.endApplication, openDebug, openCom)
         self.gui_Debug = GuiDebug(master, self.received_queueDebug, self.send_queue)
         self.gui_Debug.protocol("WM_DELETE_WINDOW", hide_Debug)
-        self.gui_com = GuiConnect(master, self.init_Queue)
+        self.gui_com = GuiConnect(master, self.init_Queue, self.close_com)
         self.gui_com.protocol("WM_DELETE_WINDOW", hide_Com)
         # Set up the thread to do asynchronous I/O
         # More can be made if necessary
@@ -759,7 +765,24 @@ class ThreadedClient:
                     self.gui_Debug.debug_text.see(tk.END)
             except Queue.Empty:
                     pass
-
+        while self.connected_queue.qsize():
+            try:
+                msg = self.connected_queue.get()
+                if msg == "connected":
+                    self.gui_com.connectbutton.configure(state =  tk.DISABLED)
+                    self.gui_com.disconnectbutton.configure(state =  tk.NORMAL)
+                    self.connected = True
+                    self.master.title("ArdumowerDK " + msg)
+                elif msg == "disconnected":
+                    self.gui_com.connectbutton.configure(state =  tk.NORMAL)
+                    self.gui_com.disconnectbutton.configure(state =  tk.DISABLED)
+                    self.connected = False
+                    self.master.title("ArdumowerDK " + msg)
+                else:
+                    self.gui_com.connection_entry_var.set(msg)
+                    self.master.title("ArdumowerDK Connected: " + msg)
+            except Queue.Empty:
+                pass
     def initThread(self):
         """
         This is where we handle the asynchronous I/O. For example, it may be
@@ -810,8 +833,7 @@ class ThreadedClient:
 
                     if (msg == "disconnect") and autodetect:
                         self.receive_connected_queue.put("disconnected")
-                        self.gui_com.connectbutton.configure(state =  tk.NORMAL)
-                        self.gui_com.disconnectbutton.configure(state =  tk.DISABLED)
+                        self.connected_queue.put("disconnected")
                         connected = False
                         try:
                             self.Ardumower.close()
@@ -842,13 +864,15 @@ class ThreadedClient:
                                         msg = ""
                                         autodetect = False
                                         com_exclude = []
+
+                                        self.connected_queue.put("connected")
+                                        com = "com" + str(com)
+                                        self.connected_queue.put(com)
                                         com = 0
-                                        self.gui_com.connectbutton.configure(state =  tk.DISABLED)
-                                        self.gui_com.disconnectbutton.configure(state =  tk.NORMAL)
                                         connected = True
                                 com_device = ""
                             com_exclude.append(com)
-                            print com_exclude, self.connected
+                            print com_exclude, connected
                             print "com_device", com_device
 
                     elif msg != "":
@@ -857,7 +881,7 @@ class ThreadedClient:
                             print com_device
                             com_device.write("{.}")
                             time.sleep(0.5)
-                            while com_device.inWaiting() != 0 and self.connected == False:
+                            while com_device.inWaiting() != 0 and connected == False:
                                 muC = com_device.readline()
                                 print muC
                                 if muC.find("Ardumower") >= 0:
@@ -869,8 +893,7 @@ class ThreadedClient:
                                     self.send_queue.put("connected")
                                     self.received_queue.put(ms)
                                     msg = ""
-                                    self.gui_com.connectbutton.configure(state =  tk.DISABLED)
-                                    self.gui_com.disconnectbutton.configure(state =  tk.NORMAL)
+                                    self.connected_queue.put("connected")
                                     connected = True
 ##                                else: print "Failed to connect to Device"
 
@@ -906,22 +929,26 @@ class ThreadedClient:
                     pass
 
             if connected and  mower.inWaiting() != 0:
+                try:
 
-                msg += mower.readline()
+                    msg += mower.readline()
 
 
-                if (msg.find("|") == -1) and (msg.find(",") == -1) and (msg.find("{") == -1) and (msg.find("}") == -1):
-                    self.received_queueDebug.put(msg)
-                    msg = ""
-                elif not msg.find("{")>= 0:
-                    self.received_queue.put(msg)
-##                    print msg
-                    msg = ""
+                    if (msg.find("|") == -1) and (msg.find(",") == -1) and (msg.find("{") == -1) and (msg.find("}") == -1):
+                        self.received_queueDebug.put(msg)
+                        msg = ""
+                    elif not msg.find("{")>= 0:
+                        self.received_queue.put(msg)
+    ##                    print msg
+                        msg = ""
 
-                elif msg.find("}")>= 0:
-                    self.received_queue.put(msg)
-##                    print msg
-                    msg = ""
+                    elif msg.find("}")>= 0:
+                        self.received_queue.put(msg)
+    ##                    print msg
+                        msg = ""
+                except SerialException:
+                    self.connected_queue.put("disconnected")
+                    pass
 
 
         if self.running == False:
@@ -991,18 +1018,25 @@ class ThreadedClient:
 
 
     def endApplication(self):
-        self.init_com = False
+
         if self.running:
             if tkMessageBox.askokcancel("Quit", "Do you really wish to quit?"):
                 self.running = False
+                self.init_com = False
                 self.master.after(100, self.close_com)
                 self.master.after(1000, self.master.destroy)
+
 ##                self.master.after(1000, sys.exit)
         else:
             self.master.destroy()
 
     def close_com(self):
-        if self.gui_com.connectbutton.cget("state") == tk.DISABLED: self.Ardumower.close()
+        if self.connected:
+            autodetect = True
+            ms = "disconnect"
+            msg = autodetect, ms
+            if self.init_com: self.init_Queue.put(msg)
+            else: self.Ardumower.close()
 
 rand = random.Random()
 root = tk.Tk()
