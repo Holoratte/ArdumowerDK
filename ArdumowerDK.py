@@ -257,7 +257,7 @@ class GuiPart:
                 else:
                     self.ax[channel].draw_artist(self.lines[channel])
                     self.canvas[channel].blit(self.ax[channel].bbox)
-##        print time.time() - t0, "seconds"
+
         self.toolbar.update()
         self.idle1_flag = True
         return True
@@ -303,7 +303,7 @@ class GuiPart:
             else:
                 command += "`" + str(value)
         self.SQueue.put(command)
-##        print "send", command
+
 
     def mainmenu(self):
         self.plot = False
@@ -324,14 +324,13 @@ class GuiPart:
             else:
                 self.plotnumbers.remove(buttonpressed)
                 self.nav_buttons[buttonpressed].configure(relief = tk.RAISED)
-    ##        print self.plotnumbers
+
             for lo in self.lo:
                 lo = 0.0
             for hi in self.hi:
                 hi = -1.0
             self.plotnumbers.sort()
 
-    ##        print self.plotnumbers
             self.idle_flag = False
             for i in range(self.canvasnumber):
                 if len(self.plotnumbers)>= (i+1):
@@ -367,14 +366,12 @@ class GuiPart:
             try:
                 msg = self.RQueue.get(0)
                 # Check contents of message and do what it says
-                # As a test, we simply print it
 
                 if msg.find("init") >= 0:
                     msg.strip("init")
                     init = True
                     msg = msg.strip("init")
-##                    print init, "incomming"
-##                print msg
+
                 msg = msg.strip("\n")
                 msg = msg.strip("\r")
 
@@ -402,16 +399,13 @@ class GuiPart:
     ##
                     if init:
                         self.titles = []
-##                        print msg_list
                         self.maincommand_list=[]
                         self.maincomName_list = []
                         self.c.get_tk_widget().grid_remove()
 ##                        self.toolbar.grid_remove()
                         for i in range(len(msg_list)-1):
                             coma, comName = msg_list[i+1].split("~")
-    ##                        print coma
                             self.maincommand_list.append(coma)
-    ##                        print self.command_list
                             self.maincomName_list.append(comName)
                             self.main_buttons[i].grid()
                             self.main_buttons[i].configure(text=self.maincomName_list[i], command= lambda i=i: self.send(self.maincommand_list[i]))
@@ -420,16 +414,12 @@ class GuiPart:
 ##                            self.console1.grid()
 
                     elif self.plot:
-##                        print data_list
                         if len(msg_list)>=2:
-##                            print msg_list
-
                             if msg_list[0].find("`")>=0:
                                 title,self.datasize = msg_list[0].split("`")
                             if msg_list[1].find("`")>=0:
                                 for i in range(len(msg_list)-1):
                                     msg_list[i+1], num = msg_list[i+1].split("`")
-                                print num
                             for name in self.plotnames:
                                 name = "value"
                             self.idle_flag = False
@@ -445,17 +435,14 @@ class GuiPart:
                             self.plotnumbers = [0]
                             for i in range(len(self.main_buttons)):
                                     self.main_buttons[i].configure(relief = tk.RAISED)
-##                            print msg_list
-##                            print self.titles
+
                             for tiltle in self.titles:
                                 ti = tiltle
                                 if msg_list[0].find(ti) >= 0:
                                     tiltlenumber = self.titles.index(tiltle)
                                     self.main_buttons[tiltlenumber].configure(relief = tk.RIDGE)
                             if msg_list[1].find("time")>=0:
-
                                 msg_list = msg_list[1:]
-                                print msg_list
                                 self.timeSent = True
                             else: self.timeSent = False
                             for i in range(len(msg_list)-1):
@@ -475,13 +462,11 @@ class GuiPart:
                                     if i in self.plotnumbers: self.plotnumbers.remove(i)
                                     self.nav_buttons[i].configure(text=msg_list[i+1], relief = tk.RAISED,command=lambda i= i:self.setplot(i))
                                 self.plotnames[i] = msg_list[i+1]
-##                                print self.plotnames
 
                             self.idle_flag = True
 
 
                         elif len(data_list)>=1:
-##                            print data_list
                             t0 = time.time()
                             if self.timeSent:
                                 data_list = data_list[1:]
@@ -491,14 +476,12 @@ class GuiPart:
                             try:
                                 if self.idle_flag and self.idle1_flag:
                                     self.idle1_flag = False
-##                                    print"number of data: ", self.datanumber
                                     tdata1 = []
                                     if len(self.plotnumbers) >=1:
                                         for i in range(len(self.data_list[self.plotnumbers[0]])):
                                             tdata1.append(i)
                                     for i in range(self.canvasnumber):
                                         if len(self.plotnumbers)>= (i+1):
-    ##                                        print len(self.plotnumbers), i
                                             self.channel = i
 
     ##                                        if (len(self.data_list)-1) >= len(self.data_list[self.plotnumbers[i]]):
@@ -535,14 +518,10 @@ class GuiPart:
                                             self.main_buttons[d].configure(relief = tk.RAISED)
                                     for i in range(len(msg_list)-1):
                                         coma, comName = msg_list[i+1].split("~")
-    ##                                    print coma
                                         self.maincommand_list.append(coma)
-    ##                                    print comName
                                         self.maincomName_list.append(comName)
-
                                         self.main_buttons[i].configure(text=self.maincomName_list[i], command= lambda i=i: self.send(self.maincommand_list[i]))
                                         self.main_buttons[i].grid()
-
                                         self.titles.append(comName)
                                         self.console1.grid()
                                 else:
@@ -550,7 +529,7 @@ class GuiPart:
                                     for i in range(len(self.main_buttons)):
                                         self.main_buttons[i].configure(relief = tk.RAISED)
                                     self.main_buttons[tiltlenumber].configure(relief = tk.RIDGE)
-    ##                        print msg_list[0], tiltle
+
                         if not self.plot:
                             for i in range(len(msg_list)-1):
                                 self.scaleActiv_list.append(False)
@@ -560,9 +539,8 @@ class GuiPart:
                                     self.scaleActiv_list[i] = True
 
                                 else:coma, comName = msg_list[i+1].split("~")
-            ##                    print coma
+
                                 self.command_list.append(coma)
-            ##                    print self.command_list
                                 self.comName_list.append(comName)
                                 self.multiplier_list.append(0.0)
                                 self.minimum_list.append(0)
@@ -579,7 +557,7 @@ class GuiPart:
                                     self.scale[i].grid()
                                     self.scaleVar[i].set(self.ist_list[i])
                                     self.nav_buttons[i].configure(text=comName, command= lambda i=i: self.send(self.command_list[i], self.scaleVar[i].get()/self.multiplier_list[i]))
-            ##                        print "scale ", i
+
 
             except Queue.Empty:
                 pass
@@ -654,7 +632,6 @@ class GuiConnect(tk.Toplevel):
             if self.autodetect_checkbutton_var.get() == 1: autodetect = True
             else: autodetect = False
             com_device = self.connection_entry_var.get()
-##            print com_device
             msg = autodetect,com_device
             if self.options_var.get() == "Network":
                 IPadress()
@@ -801,12 +778,12 @@ class ThreadedClient:
                     except:
                         if int(comport) <= 49:
                             comport += 1
-                            print comport
+##                            print comport
                         else:
                             com_device = ""
                             print "Failed to connect to Device"
                             connected = False
-                            print comport
+##                            print comport
                             comport ="51"
                 else:
                     comport += 1
@@ -828,7 +805,6 @@ class ThreadedClient:
                         # Check contents of message and do what it says
                         #
                     msg = self.init_Queue.get(0)
-                    print msg
                     autodetect, msg = msg
 
                     if (msg == "disconnect") and autodetect:
@@ -842,22 +818,18 @@ class ThreadedClient:
 
 
                     elif autodetect and  (platform.system() == 'Windows'):
-                        print "autodetect"
                         while com_device == "" and connected == False and com <=49:
                             com_device, com = scan_comport(com_exclude)
-                            print com_device, com
                 ##            time.sleep(0.1)
                             if com_device != "":
                                 com_device.write("{.}")
                                 time.sleep(0.5)
                                 while com_device.inWaiting() != 0 and connected == False:
                                     muC = com_device.readline()
-                                    print "muC",muC
                                     if muC.find("Ardumower") >= 0:
                                         print"found Ardumower"
                                         self.Ardumower = com_device
                                         ms = muC + "init"
-                                        print ms
                                         self.received_queue.put(ms)
                                         self.receive_connected_queue.put("connected")
                                         self.send_queue.put("connected")
@@ -872,23 +844,19 @@ class ThreadedClient:
                                         connected = True
                                 com_device = ""
                             com_exclude.append(com)
-                            print com_exclude, connected
-                            print "com_device", com_device
+
 
                     elif msg != "":
                         com_device = serial.Serial(msg, baudrate=19200, writeTimeout = 10000)
                         if com_device != "":
-                            print com_device
                             com_device.write("{.}")
                             time.sleep(0.5)
                             while com_device.inWaiting() != 0 and connected == False:
                                 muC = com_device.readline()
-                                print muC
                                 if muC.find("Ardumower") >= 0:
                                     print"found Ardumower"
                                     self.Ardumower = com_device
                                     ms = muC + "init"
-                                    print ms
                                     self.receive_connected_queue.put("connected")
                                     self.send_queue.put("connected")
                                     self.received_queue.put(ms)
@@ -939,12 +907,10 @@ class ThreadedClient:
                         msg = ""
                     elif not msg.find("{")>= 0:
                         self.received_queue.put(msg)
-    ##                    print msg
                         msg = ""
 
                     elif msg.find("}")>= 0:
                         self.received_queue.put(msg)
-    ##                    print msg
                         msg = ""
                 except serial.SerialException:
                     self.connected_queue.put("disconnected")
