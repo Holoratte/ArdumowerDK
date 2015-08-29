@@ -771,6 +771,7 @@ class ThreadedClient:
             com_device = ""
             comport = 1
             while com_device == "" and comport <= 50:
+
                 if comport not in com_exclude:
                     try:
                         com_device = serial.Serial("com" + str(comport), baudrate=19200, writeTimeout = 100000)
@@ -798,7 +799,7 @@ class ThreadedClient:
         com_exclude = []
         connected = False
         while self.init_com:
-
+            time.sleep(0.01)
 
             if self.init_Queue.qsize():
                 try:
@@ -881,6 +882,7 @@ class ThreadedClient:
         msg = ""
         connected = False
         while self.running:
+            time.sleep(0.01)
             # To simulate asynchronous I/O, we create a random number at
             # random intervals. Replace the following 2 lines with the real
             # thing.
@@ -960,6 +962,7 @@ class ThreadedClient:
         """
         connected = False
         while self.running:
+            time.sleep(0.01)
             if  self.send_queue.qsize():
                 try:
                         # Check contents of message and do what it says
