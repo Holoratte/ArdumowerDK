@@ -586,8 +586,17 @@ class GuiDebug(tk.Toplevel):
         self.sendbutton = tk.Button(self, text='Send', command= send_debug_command)
         self.sendbutton.grid(column = 3, row =4, sticky = "e")
         self.autoscroll_checkbutton_var = tk.IntVar()
+        self.autoscroll_checkbutton_var.set(1)
         self.autoscroll_checkbutton = tk.Checkbutton(self, text = "Autoscroll", variable = self.autoscroll_checkbutton_var)
-        self.autoscroll_checkbutton.grid(column = 3, row = 7)
+        self.autoscroll_checkbutton.grid(column = 3, row = 7, sticky= "e")
+        self.sheepreply_checkbutton_var = tk.IntVar()
+        self.sheepreply_checkbutton_var.set(1)
+        self.sheepreply_checkbutton = tk.Checkbutton(self, text = "listen to sheep", variable = self.sheepreply_checkbutton_var)
+        self.sheepreply_checkbutton.grid(column = 3, row = 7, sticky = "w")
+        self.plotingdata_checkbutton_var = tk.IntVar()
+        self.plotingdata_checkbutton_var.set(1)
+        self.plotingdata_checkbutton = tk.Checkbutton(self, text = "plot data", variable = self.plotingdata_checkbutton_var)
+        self.plotingdata_checkbutton.grid(column = 3, row = 7)
         self.withdraw()
 
 class GuiConnect(tk.Toplevel):
@@ -894,6 +903,7 @@ class ThreadedClient:
                     if msg == "connected":
                         connected = True
                         mower = self.Ardumower
+                        msg = ""
                     elif msg == "disconnected": connected = False
                 except Queue.Empty:
                     pass
@@ -905,14 +915,17 @@ class ThreadedClient:
 
 
                     if (msg.find("|") == -1) and (msg.find(",") == -1) and (msg.find("{") == -1) and (msg.find("}") == -1):
-                        self.received_queueDebug.put(msg)
+                        self.received_queueDebug.put("Sheep debug: " + msg)
                         msg = ""
                     elif not msg.find("{")>= 0:
                         self.received_queue.put(msg)
+                        if self.gui_Debug.plotingdata_checkbutton_var.get() == 1: self.received_queueDebug.put("Plot data: " + msg)
                         msg = ""
 
                     elif msg.find("}")>= 0:
                         self.received_queue.put(msg)
+##                        print self.gui_Debug.sheepreply_checkbutton_var
+                        if self.gui_Debug.sheepreply_checkbutton_var.get() == 1: self.received_queueDebug.put("Sheep : " + msg)
                         msg = ""
                 except serial.SerialException:
                     self.connected_queue.put("disconnected")
@@ -975,6 +988,7 @@ class ThreadedClient:
                     elif connected:
                         try:
                             mower.write("{" + msg + "}" + "\n")
+                            if self.gui_Debug.sheepreply_checkbutton_var.get() == 1: self.received_queueDebug.put("DK: "+ msg)
                         except serial.SerialException:
                             self.connected_queue.put("disconnected")
                             pass
