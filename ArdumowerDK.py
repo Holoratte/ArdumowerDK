@@ -1,13 +1,13 @@
 ﻿#-------------------------------------------------------------------------------
 # Name:        Ardumower DK
-# Purpose:     Communication Ardumower - Windows computer via Bluetooth serial por
+# Purpose:     Communication Ardumower - Windows computer via Bluetooth serial port
 #
 # Author:      Holoratte
 #
-# Created:     27.08.2015
+# Created:     06.09.2015
 # Copyright:   (c) Holoratte 2015
 # Licence:     Just use it. Selling this software might be prohibited.
-# Version:     14
+# Version:     15
 #-------------------------------------------------------------------------------
 
 """
@@ -35,6 +35,7 @@ import Queue
 import Ringbuffer
 import serial
 import tkMessageBox
+import tkFileDialog
 import matplotlib
 matplotlib.use('TkAgg')
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
@@ -43,31 +44,52 @@ from matplotlib.lines import Line2D
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 import platform
 import serialenum
+import csv
+import datetime
 
 class GuiPart:
-    def __init__(self, master, receivedQueue, sendQueue, endCommand, Debug, Com):
+    def __init__(self, master, receivedQueue, sendQueue, receiveConnected_Queue,
+                    saveToFile_Queue, logToFile_Queue, endCommand, Debug, Com):
+
         self.master = master
         self.lastCommand = []
         for i in range(100):
             self.lastCommand.append(".")
-
+        self.settingsfname = ""
+        self.logFileName= ""
+        self.settingsToFile = False
+        self.settingsFromFile = False
+        self.logToFile = False
+        self.mainSettingsComand_list = []
+        self.mainSettingsName_list = []
+        self.snl_index = 0
+        self.numberOfSetting = 0
+        self.RQueue = receivedQueue
+        self.SQueue = sendQueue
+        self.sTfQueue = saveToFile_Queue
+        self.rCQueue = receiveConnected_Queue
+        self.lTfQueue = logToFile_Queue
             # Set up the GUI
 
         #---------------Menu--------------------------------------------
         def donothing():
            filewin = tk.Toplevel(master)
-           button = tk.Button(filewin, text="Do nothing button")
+           button = tk.Button(filewin, text="not yet implemented ;-(")
+           button.pack()
+        def showversion():
+           filewin = tk.Toplevel(master)
+           button = tk.Button(filewin, text="ArdumowerDK V15")
            button.pack()
 
         menubar = tk.Menu(master)
         filemenu = tk.Menu(menubar, tearoff = 0)
-        filemenu.add_command(label="New", command=donothing)
+##        filemenu.add_command(label="New", command=donothing)
 ##        filemenu.add_command(label="Open", command=donothing)
 ##        filemenu.add_command(label="Save", command=donothing)
 ##        filemenu.add_command(label="Save as...", command=donothing)
 ##        filemenu.add_command(label="Close", command=donothing)
 ##
-        filemenu.add_separator()
+##        filemenu.add_separator()
 
         filemenu.add_command(label="Exit", command=endCommand)
         menubar.add_cascade(label="File", menu=filemenu)
@@ -94,21 +116,23 @@ class GuiPart:
 
         settingsmenu = tk.Menu(menubar, tearoff=0)
         settingsmenu.add_command(label="save", command=lambda: self.send("sz"))
+        settingsmenu.add_command(label="save to file", command= self.save_settings_toFile)
+        settingsmenu.add_command(label="load from file", command=donothing)
+##        settingsmenu.add_command(label="load from file", command=self.load_settings_fromFile)
         settingsmenu.add_command(label="load fatory settings", command=lambda: self.send("sx"))
         settingsmenu.add_command(label="Edit", command=lambda: self.send("s"))
         menubar.add_cascade(label="Settings", menu=settingsmenu)
 
-##        helpmenu = tk.Menu(menubar, tearoff=0)
-##        helpmenu.add_command(label="Help Index", command=donothing)
-##        helpmenu.add_command(label="About...", command=donothing)
-##        menubar.add_cascade(label="Help", menu=helpmenu)
+        helpmenu = tk.Menu(menubar, tearoff=0)
+        helpmenu.add_command(label="Help Index", command=donothing)
+        helpmenu.add_command(label="About...", command=showversion)
+        menubar.add_cascade(label="Help", menu=helpmenu)
 
         master.config(menu=menubar)
 
 
         #--------------------Buttons and scalebars----------------------------------------------
-        self.RQueue = receivedQueue
-        self.SQueue = sendQueue
+
 
         self.console1 = tk.Button(master, text='Main', command= self.mainmenu)
         self.console1.grid(column = 0, row =0)
@@ -152,7 +176,7 @@ class GuiPart:
             self.scale[i].grid_remove()
 
 #        -----------------------------------Plot---------------------------
-        self.canvasnumber =5
+        self.canvasnumber =9 #number of subsubplots (1-9)
         self.plot = False
         self.channel = 0
         self.f = Figure()
@@ -202,7 +226,6 @@ class GuiPart:
             a.set_xlabel("")
             a.set_xticks([])
 
-        self.channel += 1
         self.channel = 0
 
         self.plotnumbers = [0]
@@ -227,6 +250,57 @@ class GuiPart:
         master.bind('<Next>', self.sendNext)
         master.bind('<a>', self.sendAutomode)
 
+
+    def create_csv(self):
+##        print'doing'
+        date= str(datetime.datetime.now().replace(microsecond=0))
+        date, time= date.split()
+##        time , gmt= time.split('+')
+
+        hh,mm,ss=time.split(':')
+        self.logFileName += "_" + date+' '+hh+'-'+mm+'-'+ss+'.csv'
+        with open(self.logFileName, "wb" ) as f:
+            writer = csv.writer(f)
+            writer.writerow( ("ARDUMOWER SENSOR LOG FILE") )
+        return True
+##        print 'done'
+
+
+    def write_csv(self,datetime,data):
+        datetime=str(datetime.replace(microsecond=0))
+        date, time= datetime.split()
+        if data[0].find("time") >= 0:
+            data.insert(0,"Time")
+            data.insert(0,"Date")
+        else:
+            data.insert(0,time)
+            data.insert(0,date)
+##        time , gmt= time.split('+')
+        try:
+            with open(self.logFileName, 'ab' ) as f:
+                writer = csv.writer(f, dialect='excel')
+                writer.writerow(data)
+        except:
+            print "cannot write so fast"
+            pass
+
+    def save_settings_toFile(self,fname = ""):
+        if fname == "": fname = tkFileDialog.asksaveasfilename( title='Save to file', filetypes=[("Ardumower settings","*.ardm" ),],defaultextension="*.ardm")
+        if fname != "":
+            self.settingsfname = fname
+            msg = "settings_toFile"
+            self.settingsToFile = True
+            self.rCQueue.put(msg)
+            self.send("s")
+
+    def load_settings_fromFile(self,fname = ""):
+        if fname == "": fname = tkFileDialog.askopenfilename( title='Load from file', filetypes=[("Ardumower settings","*.ardm" ),("all files", "*.*")],defaultextension="*.ardm")
+        if fname != "":
+            self.settingsfname = fname
+            msg = "settings_fromFile"
+            self.settingsFromFile = True
+            self.rCQueue.put(msg)
+            self.send("s")
 
 
     def update_background(self,event):
@@ -293,16 +367,40 @@ class GuiPart:
         self.send("ra")
 
     def send(self, command, value = None):
-
-        if value == None and command!= "sz" and command!= "sx": self.lastCommand.append(command)
-        if value != None:
-            if value == "back":
-                if len(self.lastCommand) >= 1: del self.lastCommand[-1]
-            elif value== "refresh":
-                pass
+        if command == "sx":
+            if tkMessageBox.askokcancel("Factory Reset", "Do You really want to reset all setting to factory default?"):
+                self.SQueue.put(command)
+        elif command == "sz":
+            if tkMessageBox.askokcancel("Save Setting", "Do You really want to save the settings to the eeprom?"):
+                self.SQueue.put(command)
+        elif command =="m1":
+            fname = ""
+            fname = tkFileDialog.asksaveasfilename( title='Save Sensor log to file', filetypes=[("comma separated value","*.csv" )])
+            if fname != "":
+                self.logFileName = fname
+                if self.create_csv():
+                    self.rCQueue.put("log")
+                    self.logToFile = True
+                    self.SQueue.put(command)
+                else:
+                    self.rCQueue.put("no log")
+                    self.logToFile = False
             else:
-                command += "`" + str(value)
-        self.SQueue.put(command)
+                self.rCQueue.put("no log")
+                self.logToFile = False
+
+        else:
+            self.rCQueue.put("no log")
+            self.logToFile = False
+            if value == None and command!= "sz" and command!= "sx": self.lastCommand.append(command)
+            if value != None:
+                if value == "back":
+                    if len(self.lastCommand) >= 1: del self.lastCommand[-1]
+                elif value== "refresh":
+                    pass
+                else:
+                    command += "`" + str(value)
+            self.SQueue.put(command)
 
 
     def mainmenu(self):
@@ -366,7 +464,7 @@ class GuiPart:
             try:
                 msg = self.RQueue.get(0)
                 # Check contents of message and do what it says
-
+##                print "r msg: ",msg
                 if msg.find("init") >= 0:
                     msg.strip("init")
                     init = True
@@ -382,13 +480,20 @@ class GuiPart:
                     msg = msg.strip("=")
 
                     msg_list = msg.rsplit("|")
+                elif msg.find("Log sensors") >= 0:
+                    msg = msg.strip("{")
+                    msg = msg.strip("}")
+                    msg = msg.strip(".")
+                    msg = msg.strip("=")
+                    msg_list.append(msg)
 
-                elif msg.find(",") >= 0:
+
+                elif msg.find(",") >= 0 and not self.logToFile:
                     data_list = msg.rsplit(",")
                     for i in range(len(data_list)):
                         data_list[i] = float(data_list[i])
                 else:
-##                    print"msg error"
+                    print"msg error:" , msg
                     pass
                 if not self.plot:
                     for i in range(len(self.nav_buttons)):
@@ -504,7 +609,8 @@ class GuiPart:
                                 tiltlenumber = self.titles.index(tiltle)
 
                                 if tiltlenumber == 6:
-
+                                    self.rCQueue.put("no log")
+                                    self.logToFile = False
                                     for button in self.main_buttons:
                                         button.grid_remove()
                                     self.titles=[]
@@ -524,7 +630,16 @@ class GuiPart:
                                         self.main_buttons[i].grid()
                                         self.titles.append(comName)
                                         self.console1.grid()
+                                elif tiltlenumber == 5:
+                                    self.plot = False
+                                    for i in range(len(self.main_buttons)):
+                                        self.main_buttons[i].configure(relief = tk.RAISED)
+                                    self.main_buttons[tiltlenumber].configure(relief = tk.RIDGE)
+
+
                                 else:
+                                    self.rCQueue.put("no log")
+                                    self.logToFile = False
                                     self.plot = False
                                     for i in range(len(self.main_buttons)):
                                         self.main_buttons[i].configure(relief = tk.RAISED)
@@ -558,9 +673,93 @@ class GuiPart:
                                     self.scaleVar[i].set(self.ist_list[i])
                                     self.nav_buttons[i].configure(text=comName, command= lambda i=i: self.send(self.command_list[i], self.scaleVar[i].get()/self.multiplier_list[i]))
 
-
             except Queue.Empty:
                 pass
+
+        if self.logToFile:
+            while self.lTfQueue.qsize():
+                try:
+                    msg = self.lTfQueue.get(0)
+                    msg = msg.strip("\n")
+                    msg = msg.strip("\r")
+                    datalist = msg.rsplit(",")
+                    self.write_csv(datetime.datetime.now(),datalist)
+##                    print msg
+                    msg = ""
+                except Queue.Empty:
+                    pass
+
+        if self.settingsToFile:
+            while self.sTfQueue.qsize():
+
+                try:
+                    msg = self.sTfQueue.get(0)
+                    msg = msg.strip("\n")
+                    msg = msg.strip("\r")
+                    settings_list = []
+
+                    if msg.find("|") >= 0:
+                        msg = msg.strip("{")
+                        msg = msg.strip("}")
+                        msg = msg.strip(".")
+                        msg = msg.strip("=")
+
+                        msg_list = msg.rsplit("|")
+
+                    # Check contents of message and do what it says
+                        for i in range(len(msg_list)-1):
+                            if msg_list[i+1].find("~ ~") >= 0:
+                                coma, comName, a, multiplier = msg_list[i+1].split("~")
+                                comName, ist , maximum, minimum = comName.split("`")
+                                tabubaltor = "\t"
+                                descriptor = comName +" (maximum:"+ maximum + " minimum:"+ minimum + ") " + " X " + multiplier
+                                numberOfTabs = int((75 - len(descriptor))/4)+1
+                                for j in range(numberOfTabs): tabubaltor += "\t"
+                                setting = descriptor + tabubaltor + "|" + coma + "`" + ist
+                            else:
+                                coma, comName = msg_list[i+1].split("~")
+                                tabubaltor = "\t"
+                                descriptor = comName
+                                numberOfTabs = int((75 - len(descriptor))/4)+1
+                                for j in range(numberOfTabs): tabubaltor += "\t"
+                                setting = descriptor + tabubaltor + "|" + coma
+
+                            if msg_list[0].find("Settings") >= 0:
+                                if (coma.find("sz") == -1) and (coma.find("sx") == -1):
+                                    comName = comName.upper()
+                                    self.mainSettingsName_list.append(comName)
+                                    self.mainSettingsComand_list.append(coma)
+                            else:
+                                if setting.find("\n") == -1:
+                                    settings_list.append(setting)
+
+                        if msg_list[0].find("Settings") >= 0:
+                            self.snl_index  = 0
+                            with open(self.settingsfname,"w") as settingsFile:
+                                settingsFile.write("SETTINGS ARDUMOWER"+ time.strftime("%Y-%m-%d %H:%M:%S") + "\n\n\n\n")
+                        else:
+                            tabubaltor = "\t"
+                            descriptor = self.mainSettingsName_list[self.snl_index]
+                            numberOfTabs = int((75 - len(descriptor))/4)+1
+                            for j in range(numberOfTabs): tabubaltor += "\t"
+                            mainSet = descriptor + tabubaltor + "|" + self.mainSettingsComand_list[self.snl_index]  + "\n"
+
+                            with open(self.settingsfname,"a") as settingsFile:
+                                settingsFile.write(mainSet)
+                                for setting in settings_list:
+                                    settingsFile.write(setting + "\n")
+                                settingsFile.write("\n\n\n")
+                            self.snl_index += 1
+
+                        if self.snl_index +1  <= (len(self.mainSettingsComand_list)): self.send(self.mainSettingsComand_list[self.snl_index])
+                        else:
+                            self.rCQueue.put("not_settingsToFile")
+                            self.settingsToFile = False
+                            self.snl_index = 0
+
+
+                except Queue.Empty:
+                    pass
 
 class GuiDebug(tk.Toplevel):
     def __init__(self, master, receive_connected_queue, sendQueue):
@@ -699,6 +898,9 @@ class ThreadedClient:
         self.init_Queue = Queue.Queue()
         self.receive_connected_queue = Queue.Queue()
         self.connected_queue = Queue.Queue()
+        self.saveToFile_Queue = Queue.Queue()
+        self.logToFile_Queue = Queue.Queue()
+
         # Set up the GUI part
         def openDebug():
             self.gui_Debug.deiconify()
@@ -718,7 +920,9 @@ class ThreadedClient:
             self.gui_com.withdraw()
             master.deiconify()
 
-        self.gui = GuiPart(master, self.received_queue, self.send_queue, self.endApplication, openDebug, openCom)
+        self.gui = GuiPart(master, self.received_queue, self.send_queue,
+                            self.receive_connected_queue, self.saveToFile_Queue, self.logToFile_Queue,
+                            self.endApplication, openDebug, openCom)
         self.gui_Debug = GuiDebug(master, self.receive_connected_queue, self.send_queue)
         self.gui_Debug.protocol("WM_DELETE_WINDOW", hide_Debug)
         self.gui_com = GuiConnect(master, self.init_Queue, self.close_com)
@@ -906,6 +1110,8 @@ class ThreadedClient:
         connected = False
         sheepReply_checkbutton_var = False
         dataPlot_checkbutton_var = False
+        settings_toFile = False
+        logToFile = False
         while self.running:
             time.sleep(0.01)
             # To simulate asynchronous I/O, we create a random number at
@@ -914,7 +1120,6 @@ class ThreadedClient:
             if  self.receive_connected_queue.qsize():
                 try:
                         # Check contents of message and do what it says
-                        #
                     msg = self.receive_connected_queue.get(0)
 ##                    print msg
                     if msg == "connected":
@@ -926,9 +1131,15 @@ class ThreadedClient:
                     elif msg == "Sheep noDebug": sheepReply_checkbutton_var = False
                     elif msg == "Data Debug": dataPlot_checkbutton_var = True
                     elif msg == "Data noDebug": dataPlot_checkbutton_var = False
+                    elif msg == "settings_toFile": settings_toFile = True
+                    elif msg == "not_settingsToFile": settings_toFile = False
+                    elif msg == "log": logToFile = True
+                    elif msg == "no log": logToFile = False
                     msg = ""
+
                 except Queue.Empty:
                     pass
+
 
             if connected and  mower.inWaiting() != 0:
                 try:
@@ -940,12 +1151,16 @@ class ThreadedClient:
                         self.receivedDebug_queue.put("Sheep debug: " + msg)
                         msg = ""
                     elif not msg.find("{")>= 0:
-                        self.received_queue.put(msg)
+                        if not logToFile: self.received_queue.put(msg)
+                        else: self.logToFile_Queue.put(msg)
                         if dataPlot_checkbutton_var == True: self.receivedDebug_queue.put("Plot data: " + msg)
                         msg = ""
 
                     elif msg.find("}")>= 0:
-                        self.received_queue.put(msg)
+                        if settings_toFile: self.saveToFile_Queue.put(msg)
+##                        elif logToFile: self.logToFile_Queue.put(msg)
+                        else: self.received_queue.put(msg)
+
                         if sheepReply_checkbutton_var == True: self.receivedDebug_queue.put("Sheep : " + msg)
                         msg = ""
                 except serial.SerialException:
