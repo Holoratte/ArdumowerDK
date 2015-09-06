@@ -34,6 +34,9 @@ Bluetooth Serial Communication to Ardumower
 	 ',' or '|' or '{' or '}' should not be used in the debug strings 
 	 since these characters are used for filtering normal communication (commands/plot data) 
 
+#Save settings to file
+	it's now possible to save your mowers settings to ta txt file
+	Timer settings are ignored
 
 #use at your own risk
 
