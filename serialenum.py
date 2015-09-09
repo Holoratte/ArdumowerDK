@@ -27,7 +27,7 @@ def enumerate():
             except WindowsError:
                 break
         return ports
-    elif sys.platform == 'linux2':
+    elif sys.platform.startswith('linux'):
         if os.path.exists('/dev/serial/by-id'):
             entries = os.listdir('/dev/serial/by-id')
             dirs = [os.readlink(os.path.join('/dev/serial/by-id', x))
@@ -38,6 +38,7 @@ def enumerate():
         for dev in glob('/dev/ttyS*'):
             try:
                 port = Serial(dev)
+                port.close()
             except:
                 pass
             else:
@@ -51,7 +52,7 @@ def enumerate():
 
 def script():
     for port in enumerate():
-        print "Ports: ", port
+        print( "Ports: " + port )
 
 if __name__ == "__main__":
     script()
