@@ -6,8 +6,6 @@ from ssl import SSLError
 
 def send(pushalot_authorizationtoken, pushalot_body = 'something happend', pushalot_title = 'Sheep Sheep'):
 
-    pushalot_body = pushalot_body
-    pushalot_title = pushalot_title
     http_handler = HTTPSConnection("pushalot.com")
     data = {'AuthorizationToken': pushalot_authorizationtoken,
             'Title': pushalot_title.encode('utf-8'),
