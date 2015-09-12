@@ -46,6 +46,7 @@ import platform
 import serialenum
 import csv
 import datetime
+import Pushalot
 
 class GuiPart:
     def __init__(self, master, receivedQueue, sendQueue, receiveConnected_Queue,
@@ -764,6 +765,9 @@ class GuiPart:
 class GuiDebug(tk.Toplevel):
     def __init__(self, master, receive_connected_queue, sendQueue):
         tk.Toplevel.__init__(self)
+        def selectall(event):
+            event.widget.tag_add("sel","1.0","end")
+
         self.master = master
         self.title("Debug")
         self.geometry('+70+10')
@@ -810,7 +814,10 @@ class GuiDebug(tk.Toplevel):
         self.sheepReply_checkbutton_var.trace("w",getDebug)
         self.plotingdata_checkbutton_var.trace("w",getDebug)
         self.sheepSend_checkbutton_var.trace("w",getDebug)
+        self.master.bind_class("Text","<Control-a>", selectall)
         self.withdraw()
+
+
 
 class GuiConnect(tk.Toplevel):
     def __init__(self, master,initQueue, close_com):
@@ -890,6 +897,9 @@ class ThreadedClient:
         """
         master.protocol("WM_DELETE_WINDOW", self.endApplication)
         self.master = master
+        self.pushalotTokken = ""
+        self.errormsg = ""
+        self.timestart = time.time()
 
         # Create the queue
         self.received_queue = Queue.Queue()
@@ -938,6 +948,13 @@ class ThreadedClient:
         self.threadS = threading.Thread(target=self.sendThread)
         self.master.after(1000, self.threadR.start)
         self.master.after(1000, self.threadS.start)
+        try:
+            with open("pushalottokken.txt","r") as pushalotTokkenFile:
+                self.pushalotTokken = pushalotTokkenFile.readline()
+            self.pushalotTokken = self.pushalotTokken.strip("\n")
+            print ( self.pushalotTokken )
+        except:
+            print ( "file does not exist" )
 
 
         # Start the periodic call in the GUI to check if the queue contains
@@ -963,6 +980,14 @@ class ThreadedClient:
         while self.receivedDebug_queue.qsize():
             try:
                 msg = self.receivedDebug_queue.get()
+                if msg.find("Error") >= 0:
+                    timer = time.time() - self.timestart
+##                    if (msg != self.errormsg) and (self.pushalotTokken != "") and (timer >= 60):
+                    if (self.pushalotTokken != "") and (timer >= 60):
+                        Pushalot.send(self.pushalotTokken, msg)
+                        self.errormsg = msg
+                        self.timestart = time.time()
+
                 self.gui_Debug.debug_entry_in_var.set(msg)
                 self.gui_Debug.debug_text.insert(tk.END, msg + "\n")
                 if self.gui_Debug.autoscroll_checkbutton_var.get() == 1:
