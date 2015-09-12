@@ -764,6 +764,9 @@ class GuiPart:
 class GuiDebug(tk.Toplevel):
     def __init__(self, master, receive_connected_queue, sendQueue):
         tk.Toplevel.__init__(self)
+        def selectall(event):
+            event.widget.tag_add("sel","1.0","end")
+
         self.master = master
         self.title("Debug")
         self.geometry('+70+10')
@@ -810,6 +813,7 @@ class GuiDebug(tk.Toplevel):
         self.sheepReply_checkbutton_var.trace("w",getDebug)
         self.plotingdata_checkbutton_var.trace("w",getDebug)
         self.sheepSend_checkbutton_var.trace("w",getDebug)
+        self.master.bind_class("Text","<Control-a>", selectall)
         self.withdraw()
 
 class GuiConnect(tk.Toplevel):
