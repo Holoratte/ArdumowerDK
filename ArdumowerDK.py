@@ -749,7 +749,7 @@ class GuiPart:
 
                         if msg_list[0].find("Settings") >= 0:
                             self.snl_index  = 0
-                            with open(self.settingsfname,"w") as settingsFile:
+                            with open(self.settingsfname, "w") as settingsFile:
                                 settingsFile.write("SETTINGS ARDUMOWER"+ time.strftime("%Y-%m-%d %H:%M:%S") + "\n\n\n\n")
                         else:
                             tabubaltor = "\t"
@@ -761,6 +761,7 @@ class GuiPart:
                             with open(self.settingsfname,"a") as settingsFile:
                                 settingsFile.write(mainSet)
                                 for setting in settings_list:
+                                    setting = setting.encode('utf-8')
                                     settingsFile.write(setting + "\n")
                                 settingsFile.write("\n\n\n")
                             self.snl_index += 1
