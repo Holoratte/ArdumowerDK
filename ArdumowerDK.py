@@ -498,7 +498,10 @@ class GuiPart:
                 elif msg.find(",") >= 0 and not self.logToFile:
                     data_list = msg.rsplit(",")
                     for i in range(len(data_list)):
-                        data_list[i] = float(data_list[i])
+                        try:
+                            data_list[i] = float(data_list[i])
+                        except:
+                            print( data_list[i] )
                 else:
                     print( "msg error:" , msg )
                     pass
@@ -583,7 +586,10 @@ class GuiPart:
                             if self.timeSent:
                                 data_list = data_list[1:]
                             for i in range(len(data_list)):
-                                self.data_list[i].append(data_list[i])
+                                try:
+                                    self.data_list[i].append(data_list[i])
+                                except:
+                                    print ( data_list[i] )
                             self.datanumber +=1
                             try:
                                 if self.idle_flag and self.idle1_flag:
@@ -1061,10 +1067,12 @@ class ThreadedClient:
                             com_device, com = scan_comport(com_exclude)
                 ##            time.sleep(0.1)
                             if com_device != "":
-                                com_device.write(b"{.}")
+                                com_device.write( b"{.}" )
+                                time.sleep(0.1)
+                                com_device.write( b"\n" )
                                 time.sleep(0.5)
                                 while com_device.inWaiting() != 0 and connected == False:
-                                    muC = com_device.readline().decode('ASCII')
+                                    muC = com_device.readline().decode('UTF-8')
                                     if muC.find("Ardumower") >= 0:
                                         print( "found Ardumower" )
                                         self.Ardumower = com_device
@@ -1088,10 +1096,12 @@ class ThreadedClient:
                     elif msg != "":
                         com_device = serial.Serial(msg, baudrate=19200, writeTimeout = 10000)
                         if com_device != "":
-                            com_device.write( b'{.}' )
+                            com_device.write( b"{.}" )
+                            time.sleep(0.1)
+                            com_device.write( b"\n" )
                             time.sleep(0.5)
                             while com_device.inWaiting() != 0 and connected == False:
-                                muC = com_device.readline().decode('ASCII')
+                                muC = com_device.readline().decode('UTF-8')
                                 if muC.find("Ardumower") >= 0:
                                     print( "found Ardumower" )
                                     self.Ardumower = com_device
@@ -1124,7 +1134,7 @@ class ThreadedClient:
         settings_toFile = False
         logToFile = False
         while self.running:
-            time.sleep(0.01)
+            time.sleep(0.005)
             # To simulate asynchronous I/O, we create a random number at
             # random intervals. Replace the following 2 lines with the real
             # thing.
@@ -1155,7 +1165,7 @@ class ThreadedClient:
             if connected and  mower.inWaiting() != 0:
                 try:
 
-                    msg += mower.readline().decode('ASCII')
+                    msg += mower.readline().decode('UTF-8')
 
 
                     if (msg.find("|") == -1) and (msg.find(",") == -1) and (msg.find("{") == -1) and (msg.find("}") == -1):
@@ -1240,7 +1250,7 @@ class ThreadedClient:
 
                     elif connected:
                         try:
-                            mower.write( b'{' + msg.encode('ASCII') + b"}\n")
+                            mower.write( b'{' + msg.encode('UTF-8') + b"}\n")
                             if sheepSent_checkbutton_var == True: self.receivedDebug_queue.put("DK: "+ msg)
                         except serial.SerialException:
                             self.connected_queue.put("disconnected")
