@@ -24,18 +24,25 @@ but they add a lot of complexity to the application.
 
 Created by Jacob Hallén, AB Strakt, Sweden. 2001-10-17
 """
+import pdb
 
-
-import Tkinter as tk
+import sys
+if (sys.version_info > (3, 0)):
+    import tkinter as tk
+    import queue as Queue
+    import tkinter.messagebox as tkMessageBox
+    import tkinter.filedialog as tkFileDialog
+else:
+    import Tkinter as tk
+    import Queue
+    import tkMessageBox
+    import tkFileDialog
 import time
 import threading
 import random
-import Queue
 ##import statusbar
 import Ringbuffer
 import serial
-import tkMessageBox
-import tkFileDialog
 import matplotlib
 matplotlib.use('TkAgg')
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
@@ -282,7 +289,7 @@ class GuiPart:
                 writer = csv.writer(f, dialect='excel')
                 writer.writerow(data)
         except:
-            print "cannot write so fast"
+            print( "cannot write so fast" )
             pass
 
     def save_settings_toFile(self,fname = ""):
@@ -492,9 +499,12 @@ class GuiPart:
                 elif msg.find(",") >= 0 and not self.logToFile:
                     data_list = msg.rsplit(",")
                     for i in range(len(data_list)):
-                        data_list[i] = float(data_list[i])
+                        try:
+                            data_list[i] = float(data_list[i])
+                        except:
+                            print( data_list[i] )
                 else:
-                    print"msg error:" , msg
+                    print( "msg error:" , msg )
                     pass
                 if not self.plot:
                     for i in range(len(self.nav_buttons)):
@@ -577,7 +587,10 @@ class GuiPart:
                             if self.timeSent:
                                 data_list = data_list[1:]
                             for i in range(len(data_list)):
-                                self.data_list[i].append(data_list[i])
+                                try:
+                                    self.data_list[i].append(data_list[i])
+                                except:
+                                    print ( data_list[i] )
                             self.datanumber +=1
                             try:
                                 if self.idle_flag and self.idle1_flag:
@@ -837,7 +850,7 @@ class GuiConnect(tk.Toplevel):
 ##        self.connection_options.append("Network")
             self.connection_options.append("")
             self.options_var.set(self.connection_options[-1])
-            self.options = apply(tk.OptionMenu,(self,self.options_var)+tuple(self.connection_options))
+            self.options = tk.OptionMenu(*(self,self.options_var)+tuple(self.connection_options))
             self.options.grid(column = 3, row = 5, sticky = "w")
 
         scan()
@@ -942,7 +955,7 @@ class ThreadedClient:
         self.running = True
         self.connected = False
         self.init_com = True
-    	self.threadI = threading.Thread(target=self.initThread)
+        self.threadI = threading.Thread(target=self.initThread)
         self.master.after(1000,self.threadI.start)
         self.threadR = threading.Thread(target=self.receiveThread)
         self.threadS = threading.Thread(target=self.sendThread)
@@ -1027,20 +1040,20 @@ class ThreadedClient:
                 if comport not in com_exclude:
                     try:
                         com_device = serial.Serial("com" + str(comport), baudrate=19200, writeTimeout = 100000)
-                        print "Testing com:",comport
+                        print( "Testing com:", comport )
                     except:
                         if int(comport) <= 49:
                             comport += 1
 ##                            print comport
                         else:
                             com_device = ""
-                            print "Failed to connect to Device"
+                            print( "Failed to connect to Device" )
                             connected = False
 ##                            print comport
                             comport ="51"
                 else:
                     comport += 1
-                    print "Testing com:",comport
+                    print( "Testing com:", comport )
 ##            comport =1
             return com_device, comport
 
@@ -1067,7 +1080,7 @@ class ThreadedClient:
                         try:
                             self.Ardumower.close()
                         except:
-                            print "port cannot close"
+                            print( "port cannot close" )
 
 
                     elif autodetect and  (platform.system() == 'Windows'):
@@ -1075,12 +1088,14 @@ class ThreadedClient:
                             com_device, com = scan_comport(com_exclude)
                 ##            time.sleep(0.1)
                             if com_device != "":
-                                com_device.write("{.}")
+                                com_device.write( b"{.}" )
+                                time.sleep(0.1)
+                                com_device.write( b"\n" )
                                 time.sleep(0.5)
                                 while com_device.inWaiting() != 0 and connected == False:
-                                    muC = com_device.readline()
+                                    muC = com_device.readline().decode('UTF-8')
                                     if muC.find("Ardumower") >= 0:
-                                        print"found Ardumower"
+                                        print( "found Ardumower" )
                                         self.Ardumower = com_device
                                         ms = muC + "init"
                                         self.received_queue.put(ms)
@@ -1102,12 +1117,14 @@ class ThreadedClient:
                     elif msg != "":
                         com_device = serial.Serial(msg, baudrate=19200, writeTimeout = 10000)
                         if com_device != "":
-                            com_device.write("{.}")
+                            com_device.write( b"{.}" )
+                            time.sleep(0.1)
+                            com_device.write( b"\n" )
                             time.sleep(0.5)
                             while com_device.inWaiting() != 0 and connected == False:
-                                muC = com_device.readline()
+                                muC = com_device.readline().decode('UTF-8')
                                 if muC.find("Ardumower") >= 0:
-                                    print"found Ardumower"
+                                    print( "found Ardumower" )
                                     self.Ardumower = com_device
                                     ms = muC + "init"
                                     self.receive_connected_queue.put("connected")
@@ -1138,7 +1155,7 @@ class ThreadedClient:
         settings_toFile = False
         logToFile = False
         while self.running:
-            time.sleep(0.01)
+            time.sleep(0.005)
             # To simulate asynchronous I/O, we create a random number at
             # random intervals. Replace the following 2 lines with the real
             # thing.
@@ -1169,7 +1186,7 @@ class ThreadedClient:
             if connected and  mower.inWaiting() != 0:
                 try:
 
-                    msg += mower.readline()
+                    msg += mower.readline().decode('UTF-8')
 
 
                     if (msg.find("|") == -1) and (msg.find(",") == -1) and (msg.find("{") == -1) and (msg.find("}") == -1):
@@ -1254,7 +1271,7 @@ class ThreadedClient:
 
                     elif connected:
                         try:
-                            mower.write("{" + msg + "}" + "\n")
+                            mower.write( b'{' + msg.encode('UTF-8') + b"}\n")
                             if sheepSent_checkbutton_var == True: self.receivedDebug_queue.put("DK: "+ msg)
                         except serial.SerialException:
                             self.connected_queue.put("disconnected")

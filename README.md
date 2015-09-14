@@ -1,18 +1,21 @@
 # ArdumowerDK
-Bluetooth Serial Communication to Ardumower
+Bluetooth/WIFI Serial Communication to Ardumower
 
 
 #Dependencies:
-	Win XP, Win Vista, Win 7, Win 8, Win 10, (Linux)
+	Win XP, Win Vista, Win 7, Win 8, Win 10, Linux
 	
 	Bluetooth Serial emulation *COM port installed (outgoing) 
-		ArdumowerDK will scan all available comports and send {.},
-		while listening to an "Ardumower" reply to determine if talking to Ardumower or not
-		if no Ardumower is found some debug messages (kind of simulation mode) 
-		will be sent to the program and the plot will automatically load and plot some data.
-		No comport has to be set. 
 		
-	Python 2.7 32bit
+	WIFI serial connection
+		by using HW "VSP3 - Virtual Serial Port" 
+		from http://www.hw-group.com/products/hw_vsp/index_en.html#download
+		Single-port version of HW VSP3 is available freely...
+	
+	ArdumowerDK will scan all available comports and send {.} (or you just choose one)
+	while listening to an "Ardumower" reply to determine if talking to Ardumower or not
+	
+	Python 2.7 32bit / Python 3
 		Pyserial
 		Matplotlib
 
@@ -37,6 +40,8 @@ Bluetooth Serial Communication to Ardumower
 #Save settings to file
 	it's now possible to save your mowers settings to ta txt file
 	Timer settings are ignored
+
+
 
 #use at your own risk
 
