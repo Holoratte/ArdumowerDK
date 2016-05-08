@@ -1,0 +1,2 @@
+1234567890abcdefghijklmnopqrstuvwxzyABCDEFGHIJKLMNOPQRSTUVWXZY
+ {.Ardumower (Ardumower)|r~Commands|n~Manual|s~Settings|in~Info|c~Test compass|m1~Log senor counters|y9~ADC calibration}

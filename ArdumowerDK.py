@@ -54,6 +54,7 @@ import serialenum
 import csv
 import datetime
 import Pushalot
+import pygame
 
 class GuiPart:
     def __init__(self, master, receivedQueue, sendQueue, receiveConnected_Queue,
@@ -663,11 +664,20 @@ class GuiPart:
                             for i in range(len(msg_list)-1):
                                 self.scaleActiv_list.append(False)
                                 if msg_list[i+1].find("~ ~") >= 0:
-                                    coma, comName, a, multiplier = msg_list[i+1].split("~")
-                                    comName, ist , maximum, minimum = comName.split("`")
-                                    self.scaleActiv_list[i] = True
+                                    try:
+                                        coma, comName, a, multiplier = msg_list[i+1].split("~")
+                                        comName, ist , maximum, minimum = comName.split("`")
+                                        self.scaleActiv_list[i] = True
+                                    except:
+                                        print (msg_list)
+                                        break
 
-                                else:coma, comName = msg_list[i+1].split("~")
+                                else:
+                                    try:
+                                        coma, comName = msg_list[i+1].split("~")
+                                    except:
+                                        print (msg_list)
+                                        break
 
                                 self.command_list.append(coma)
                                 self.comName_list.append(comName)
@@ -1040,7 +1050,8 @@ class ThreadedClient:
 
                 if comport not in com_exclude:
                     try:
-                        com_device = serial.Serial("com" + str(comport), baudrate=19200, writeTimeout = 100000)
+                        com_device = serial.Serial("com" + str(comport), baudrate=115200, writeTimeout = 100000)
+                        time.sleep(3)
                         print( "Testing com:", comport )
                     except:
                         if int(comport) <= 49:
@@ -1092,7 +1103,7 @@ class ThreadedClient:
                                 com_device.write( b"{.}" )
                                 time.sleep(0.1)
                                 com_device.write( b"\n" )
-                                time.sleep(0.5)
+                                time.sleep(3)
                                 while com_device.inWaiting() != 0 and connected == False:
                                     muC = com_device.readline().decode('UTF-8')
                                     if muC.find("Ardumower") >= 0:
@@ -1116,7 +1127,8 @@ class ThreadedClient:
 
 
                     elif msg != "":
-                        com_device = serial.Serial(msg, baudrate=19200, writeTimeout = 10000)
+                        com_device = serial.Serial(msg, baudrate=115200, writeTimeout = 10000)
+                        time.sleep(3)
                         if com_device != "":
                             com_device.write( b"{.}" )
                             time.sleep(0.1)
@@ -1125,6 +1137,10 @@ class ThreadedClient:
                             while com_device.inWaiting() != 0 and connected == False:
                                 muC = com_device.readline().decode('UTF-8')
                                 if muC.find("Ardumower") >= 0:
+                                    time.sleep(0.5)
+                                    com_device.flushInput()
+                                    com_device.flushOutput()
+                                    time.sleep(0.5)
                                     print( "found Ardumower" )
                                     self.Ardumower = com_device
                                     ms = muC + "init"
@@ -1184,10 +1200,11 @@ class ThreadedClient:
                     pass
 
 
-            if connected and  mower.inWaiting() != 0:
+            while connected and  mower.inWaiting() != 0:
                 try:
 
                     msg += mower.readline().decode('UTF-8')
+                    msg.strip("\n")
 
 
                     if (msg.find("|") == -1) and (msg.find(",") == -1) and (msg.find("{") == -1) and (msg.find("}") == -1):
@@ -1272,8 +1289,18 @@ class ThreadedClient:
 
                     elif connected:
                         try:
-                            mower.write( b'{' + msg.encode('UTF-8') + b"}\n")
-                            if sheepSent_checkbutton_var == True: self.receivedDebug_queue.put("DK: "+ msg)
+                            if msg.find("#") >= 0:
+                                print ("Joystick sent")
+                                mower.write(msg[:2])
+        ##                        print msg[:2]
+                                msg = msg[2:]
+        ##                        print msg
+                                if len(msg) >= 1: mower.write(chr(int(msg)))
+                                mower.write(b"\n")
+                            else:
+                                mower.write( b'{' + msg.encode('UTF-8') + b"}\n")
+                            if sheepSent_checkbutton_var == True:
+                                    self.receivedDebug_queue.put("DK: "+ msg)
                         except serial.SerialException:
                             self.connected_queue.put("disconnected")
                             pass
@@ -1289,7 +1316,154 @@ class ThreadedClient:
 ##                except Queue.Empty:
 ##                    pass
 
+    def FailSafe(self):
+        while self.running and self.connected:
+##            self.send_queue.put("#")
+            time.sleep(2.9)
 
+
+    def handleJoyEvent(self,e):
+        if e.type == pygame.JOYAXISMOTION:
+            axis = "unknown"
+            if (e.dict['axis'] == 0):
+                axis = "X"
+
+            if (e.dict['axis'] == 1):
+                axis = "Y"
+
+            if (e.dict['axis'] == 2):
+                axis = "Throttle"
+
+            if (e.dict['axis'] == 3):
+                axis = "Z"
+
+            if (axis != "unknown"):
+
+                str_1 = "Axis: %s; Value: %f" % (axis, e.dict['value'])
+                # uncomment to debug
+##                print str, e.dict['joy']
+
+
+##          Ardumower  RCpin PCB0.5
+##            GND                                                   LLL
+###define pinRemoteMow 12            // remote control mower motor  PCB LL  gelb
+###define pinRemoteSteer 11          // remote control steering     PCB L   weiss
+###define pinRemoteSpeed 10          // remote control speed        PCB R   rot
+###define pinRemoteSwitch 52         // remote control switch       PCB RR  schwarz
+
+##                ArduRC Pin
+##        const int pinSwitch = 4;  A
+##        const int pinMow = 5;     B
+##        const int pinSteer = 6;   C
+##        const int pinSpeed = 7;   D
+                # Arduino joystick
+                if axis == "X":
+                    pos = e.dict['value']
+                    # convert joystick position to g-code movement
+                    move = round(pos * 1000, 0)
+                    mappedMove = self.remap(move,-1000,1000,0,255)+1
+                    if mappedMove <= 0.0:
+                        mappedMove = 0.0
+                    if mappedMove >= 255.0:
+                        mappedMove = 255.0
+                    msg = "#c" + str(int(mappedMove))
+                    print (msg)
+                    self.queue2.put(msg)
+
+                if axis == "Y":
+                    pos = e.dict['value']
+                    # convert joystick position to 0-255
+                    move = round(pos * 1000, 0)
+                    mappedMove = self.remap(move,-1000,1000,0,255)+1
+                    if mappedMove <= 0.0:
+                        mappedMove = 0.0
+                    if mappedMove >= 255.0:
+                        mappedMove = 255.0
+                    msg = "#d" + str(int(mappedMove))
+                    print (msg)
+                    self.queue2.put(msg)
+
+                if axis == "Z":
+                    pos = e.dict['value']
+                    # convert joystick position to g-code movement
+                    move = round(pos * 1000 , 0)
+                    if move <= 0.0:
+                        move = 0.0
+                    mappedMove = self.remap(move,0,1000,0,255)
+                    if mappedMove <= 0.0:
+                        mappedMove = 0.0
+                    if mappedMove >= 255.0:
+                        mappedMove = 255.0
+                    msg = "#b" + str(int(mappedMove))
+                    print (msg)
+                    self.queue2.put(msg)
+
+        elif e.type == pygame.JOYBUTTONDOWN:
+            str_1 = "Button: %d" % (e.dict['button'])
+            # uncomment to debug
+            #output(str_1, e.dict['joy'])
+            # Button 0 (trigger) to quit
+            if (e.dict['button'] == 0):
+                print ("Bye!n")
+        else:
+            pass
+
+    def joystickControl(self):
+        while self.running:
+            e = pygame.event.wait()
+            if (e.type == pygame.JOYAXISMOTION or e.type == pygame.JOYBUTTONDOWN):
+                self.handleJoyEvent(e)
+
+    def joystick_init(self):
+        self.joy = []
+        pygame.joystick.init()
+        pygame.display.init()
+        if not pygame.joystick.get_count():
+            print ("nPlease connect a joystick and run again.n")
+
+        print ("n%d joystick(s) detected." % pygame.joystick.get_count())
+        for i in range(pygame.joystick.get_count()):
+            myjoy = pygame.joystick.Joystick(i)
+            myjoy.init()
+            self.joy.append(myjoy)
+            print ("Joystick %d: " % (i) + self.joy[i].get_name())
+        print ("Depress trigger (button 0) to quit.n")
+        self.joy_thread.start()
+
+    def remap(self, x, oMin, oMax, nMin, nMax ):
+
+        #range check
+        if oMin == oMax:
+            print ("Warning: Zero input range")
+            return None
+
+        if nMin == nMax:
+            print ("Warning: Zero output range")
+            return None
+
+        #check reversed input range
+        reverseInput = False
+        oldMin = min( oMin, oMax )
+        oldMax = max( oMin, oMax )
+        if not oldMin == oMin:
+            reverseInput = True
+
+        #check reversed output range
+        reverseOutput = False
+        newMin = min( nMin, nMax )
+        newMax = max( nMin, nMax )
+        if not newMin == nMin :
+            reverseOutput = True
+
+        portion = (x-oldMin)*(newMax-newMin)/(oldMax-oldMin)
+        if reverseInput:
+            portion = (oldMax-x)*(newMax-newMin)/(oldMax-oldMin)
+
+        result = portion + newMin
+        if reverseOutput:
+            result = newMax - portion
+
+        return result
     def endApplication(self):
 
         if self.running:
