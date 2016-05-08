@@ -16,6 +16,11 @@ Serial Monitor like a simple chat program.
 Max payload is 32 bytes for radio but the serialEvent will chopped the entire buffer
 for next payload to be sent out sequentially.
 
+
+holoratte
+8.5.2016 holoratte
+updated for Ardumower communication und the latest RF24 librarry from TMRh20 
+added a large serial TX buffer
 */
 
 
