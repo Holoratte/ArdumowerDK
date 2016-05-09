@@ -12,7 +12,8 @@ Bluetooth/WIFI Serial Communication to Ardumower
 		from http://www.hw-group.com/products/hw_vsp/index_en.html#download
 		Single-port version of HW VSP3 is available freely...
 		
-	nRF24 Modules connected to Arduino Uno's can be Interfaced using RF24 Branch of this repo and the RF24 Arduino librarry from TMRH20
+	nRF24 Modules connected to Arduino Uno's can be interfaced using 
+	RF24 branch of this repo and the RF24 Arduino librarry from TMRH20
 	
 	ArdumowerDK will scan all available comports and send {.} (or you just choose one)
 	while listening to an "Ardumower" reply to determine if talking to Ardumower or not
