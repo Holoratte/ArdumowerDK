@@ -4,10 +4,10 @@
 #
 # Author:      Holoratte
 #
-# Created:     06.09.2015
-# Copyright:   (c) Holoratte 2015
+# Created:     17.05.2015
+# Copyright:   (c) Holoratte 2016
 # Licence:     Just use it. Selling this software might be prohibited.
-# Version:     15
+# Version:     16
 #-------------------------------------------------------------------------------
 
 """
@@ -1004,7 +1004,7 @@ class ThreadedClient:
         while self.receivedDebug_queue.qsize():
             try:
                 msg = self.receivedDebug_queue.get()
-                if msg.find("Error") >= 0:
+                if (msg.find("Error") >= 0) or (msg.find("batSwitchOffIfBelow") >= 0)  :
                     timer = time.time() - self.timestart
 ##                    if (msg != self.errormsg) and (self.pushalotTokken != "") and (timer >= 60):
                     if (self.pushalotTokken != "") and (timer >= 60):
