@@ -16,11 +16,13 @@ Serial Monitor like a simple chat program.
 Max payload is 32 bytes for radio but the serialEvent will chopped the entire buffer
 for next payload to be sent out sequentially.
 
-
 holoratte
 8.5.2016 holoratte
 updated for Ardumower communication und the latest RF24 librarry from TMRh20 
 added a large serial TX buffer
+20.5.2016 holoratte
+Filtering lost packet data by transmission length
+
 */
 
 
@@ -28,21 +30,22 @@ added a large serial TX buffer
 #include "RF24.h"
 #include "printf.h"
 //#include <Servo.h>
-//#include <SoftwareSerial.h>
 
-//SoftwareSerial mySerial(2, 3); // RX, TX
 RF24 radio(9,10);
 
 const uint64_t pipes[2] = { 0xDEDEDEDEE7LL, 0xDEDEDEDEE9LL };
 
-volatile boolean stringComplete = false;  // whether the string is complete
+boolean stringComplete = false;  // whether the string is complete
 static int dataBufferIndex = 0;
-volatile boolean stringOverflow = false;
-volatile char charOverflow = 0;
+boolean stringOverflow = false;
+char charOverflow = 0;
 char SendPayload[32] = "";
 char RecvPayload[32] = "";
 char serialBuffer[32] = "";
-const unsigned int MAX_INPUT_RF24 = 512;
+const unsigned int MAX_INPUT_RF24 = 1024;
+boolean dataCorrupt = false;
+volatile unsigned int lenSent = 0; 
+volatile unsigned int lenReceived = 0;
 /*
 Servo mySwitch;  // create servo object to control a servo
 Servo myMow;  // create servo object to control a servo
@@ -82,7 +85,7 @@ void setup(void) {
   radio.setChannel(90);
  
   radio.enableDynamicPayloads();
-  radio.setRetries(2,15);
+  radio.setRetries(3,15);
   radio.setCRCLength(RF24_CRC_16);
   radio.setAutoAck(1); 
   
@@ -98,64 +101,51 @@ void setup(void) {
   delay(500);
 
 }
-/*void mySerialEvent() {
-  
-      char incomingByte = mySerial.read();
-      //Serial.print("   ");
-      //Serial.print(incomingByte);
-      //Serial.print("   ");
-     
-      if (stringOverflow) {
-         serialBuffer[dataBufferIndex++] = charOverflow;  // Place saved overflow byte into buffer
-         serialBuffer[dataBufferIndex++] = incomingByte;  // saved next byte into next buffer
-         stringOverflow = false;                          // turn overflow flag off
-      } else if (dataBufferIndex > 29) {
-         stringComplete = true;        // Send this buffer out to radio
-         stringOverflow = true;        // trigger the overflow flag
-         charOverflow = incomingByte;  // Saved the overflow byte for next loop
-         dataBufferIndex = 0;          // reset the bufferindex
-         return;
-      }
-      else if(incomingByte=='\n'){
-          serialBuffer[dataBufferIndex++] = incomingByte;
-          //serialBuffer[dataBufferIndex++] = incomingByte;
-          //Serial.println(serialBuffer);
-          serialBuffer[dataBufferIndex] = 0;
-          
-          
-          stringComplete = true;
-      } else {
-          serialBuffer[dataBufferIndex++] = incomingByte;
-          serialBuffer[dataBufferIndex] = 0;
-      }         
-  
-} // end serialEvent()
-*/
 void hardSerialEvent() {
   
       char incomingByte = Serial.read();
       //Serial.print("   ");
       //Serial.print(incomingByte);
       //Serial.print("   ");
-      if (stringOverflow) {
+       if ((stringOverflow) ) {
          serialBuffer[dataBufferIndex++] = charOverflow;  // Place saved overflow byte into buffer
-         serialBuffer[dataBufferIndex++] = incomingByte;  // saved next byte into next buffer
+         lenSent++;
          stringOverflow = false;                          // turn overflow flag off
-      } else if (dataBufferIndex > 29) {
+       }else if ((dataBufferIndex > 28)&&(incomingByte != 10)) {
          stringComplete = true;        // Send this buffer out to radio
          stringOverflow = true;        // trigger the overflow flag
          charOverflow = incomingByte;  // Saved the overflow byte for next loop
          dataBufferIndex = 0;          // reset the bufferindex
          return;
       }
-      else if(incomingByte=='\n'){
-        stringComplete = true;
+       if(incomingByte=='\n'){
+          if (lenSent == 10){  // asci 10 == "/n"
+            serialBuffer[dataBufferIndex++] = 4;
+            lenSent++;
+          }
+          if (lenSent == 3){  // asci 3 == #
+            serialBuffer[dataBufferIndex++] = 4;
+            serialBuffer[dataBufferIndex++] = 4;
+            lenSent++;
+            lenSent++;
+          }
+          if (lenSent == 4){  // asci 4 == EndOfTransmission
+            serialBuffer[dataBufferIndex++] = 4;
+            lenSent++;
+          }
+          serialBuffer[dataBufferIndex++] = lowByte(lenSent);
+          if (lenSent > 255){ serialBuffer[dataBufferIndex++] = highByte(lenSent);}
+          lenSent = 0;
           serialBuffer[dataBufferIndex++] = incomingByte;
-          //serialBuffer[dataBufferIndex++] = incomingByte;
-          serialBuffer[dataBufferIndex] = 0;
-          //Serial.println (*serialBuffer);
+          stringComplete = true;
           
-      } else {
+          
+          serialBuffer[dataBufferIndex] = 0;
+          dataBufferIndex = 0;
+          return;
+       }
+       else {
+          lenSent++;
           serialBuffer[dataBufferIndex++] = incomingByte;
           serialBuffer[dataBufferIndex] = 0;
       }         
@@ -166,29 +156,57 @@ void processIncomingByte (const byte inByte)
   {
   static char input_line [MAX_INPUT_RF24];
   static unsigned int input_pos = 0;
-
+  byte high_byte = 0;
+  byte low_byte = 0;
+  unsigned int lenMsg = 0;
+  if (dataCorrupt){
+    for (int thatChar = 0; thatChar < sizeof(input_line); thatChar++) {
+      input_line[thatChar] = 0;
+    }
+    
+    input_pos = 0;
+    dataCorrupt = false;
+    }
   switch (inByte)
     {
 
     case '\n':   // end of text
+      if (lenReceived > 255){
+        input_pos--;
+        high_byte = input_line [input_pos];
+        }
+      input_pos--;
+      low_byte = input_line [input_pos];
+      lenMsg = high_byte * 256 + low_byte;
       input_line [input_pos] = 0;  // terminating null byte
       
       // terminator reached! process input_line here ...
-      //Serial.print ("Serial out: ");
-      Serial.println (input_line);
-      //mySerial.println (input_line);
-      
+      if ((lenReceived > 255) && ((lenReceived - 2) == lenMsg)){
+       Serial.println (input_line);
+      }
+      else if ((lenReceived - 1) == lenMsg){
+       Serial.println (input_line);
+      }
+      else{ 
+        Serial.println("data lenght does not match");
+        for (int thatChar = 0; thatChar < sizeof(input_line); thatChar++) {
+            input_line[thatChar] = 0;
+       }
+      }
       // reset buffer for next time
       input_pos = 0;  
+      lenReceived = 0;
       break;
 
-    case '\r':   // discard carriage return
+    case 4:   // discard ASCI 4 (#)
+      lenReceived++;
       break;
 
     default:
       // keep adding if not full ... allow for terminating null byte
       if (input_pos < (MAX_INPUT_RF24 - 1))
         input_line [input_pos++] = inByte;
+        lenReceived++;
       break;
 
     }  // end of switch
@@ -198,17 +216,17 @@ void processIncomingByte (const byte inByte)
 void nRF_receive(void) {
   
   int len = radio.getDynamicPayloadSize();
-      if(len < 1){
-      // Corrupt payload has been flushed
+  radio.read(&RecvPayload,len);
+      if((len < 1) || (RecvPayload[0] == 0)){
+        // Corrupt payload has been flushed
+        dataCorrupt = true;
+        for (int thisChar = 0; thisChar < len; thisChar++) {
+          RecvPayload[thisChar] = 0;
+        }
+        Serial.println("data corrupt");
         return; 
       }
-    
-    
-    radio.read(&RecvPayload,len);
-    
-    
-
-    if ((RecvPayload[0]) == 35) {     // ASCI 35 = # 
+    if (RecvPayload[0] == 35) {     // ASCI 35 = # 
       RcFailSafeMillis = millis();
       //Serial.println("Servodata");
       if (RecvPayload[1] == 97) {   // ASCI 97 = a
@@ -266,7 +284,7 @@ void serial_process(void){
         radio.stopListening();
         radio.writeFast(&SendPayload,strlen(SendPayload));
         //Serial.println(ok);
-        if(radio.txStandBy(3000)){ 
+        if(radio.txStandBy(100)){ 
           stringComplete = false;
           // restore TX & Rx addr for reading       
           radio.openWritingPipe(pipes[0]);
