@@ -1004,13 +1004,18 @@ class ThreadedClient:
         while self.receivedDebug_queue.qsize():
             try:
                 msg = self.receivedDebug_queue.get()
-                if (msg.find("Error") >= 0) or (msg.find("batSwitchOffIfBelow") >= 0)  :
-                    timer = time.time() - self.timestart
-##                    if (msg != self.errormsg) and (self.pushalotTokken != "") and (timer >= 60):
-                    if (self.pushalotTokken != "") and (timer >= 60):
+                if (self.pushalotTokken != "") and (msg.find("{") < 0):
+                    if (msg.find("Error") >= 0) or (msg.find("error") >= 0)  :
+                        timer = time.time() - self.timestart
+    ##                    if (msg != self.errormsg) and (self.pushalotTokken != "") and (timer >= 60):
+                        if  (timer >= 60):
+                            Pushalot.send(self.pushalotTokken, msg)
+                            self.errormsg = msg
+                            self.timestart = time.time()
+                    if (msg.find("trigger") >= 0):
                         Pushalot.send(self.pushalotTokken, msg)
-                        self.errormsg = msg
-                        self.timestart = time.time()
+
+
 
                 self.gui_Debug.debug_entry_in_var.set(msg)
                 self.gui_Debug.debug_text.insert(tk.END, msg + "\n")
@@ -1050,8 +1055,8 @@ class ThreadedClient:
 
                 if comport not in com_exclude:
                     try:
-                        com_device = serial.Serial("com" + str(comport), baudrate=115200, writeTimeout = 100000)
-                        time.sleep(3)
+                        com_device = serial.Serial("com" + str(comport), baudrate=19200, writeTimeout = 100000)
+                        time.sleep(2)
                         print( "Testing com:", comport )
                     except:
                         if int(comport) <= 49:
@@ -1103,11 +1108,12 @@ class ThreadedClient:
                                 com_device.write( b"{.}" )
                                 time.sleep(0.1)
                                 com_device.write( b"\n" )
-                                time.sleep(3)
+                                time.sleep(2)
                                 while com_device.inWaiting() != 0 and connected == False:
                                     muC = com_device.readline().decode('UTF-8')
                                     if muC.find("Ardumower") >= 0:
                                         print( "found Ardumower" )
+                                        print( muC )
                                         self.Ardumower = com_device
                                         ms = muC + "init"
                                         self.received_queue.put(ms)
@@ -1127,13 +1133,13 @@ class ThreadedClient:
 
 
                     elif msg != "":
-                        com_device = serial.Serial(msg, baudrate=115200, writeTimeout = 10000)
-                        time.sleep(3)
+                        com_device = serial.Serial(msg, baudrate=19200, writeTimeout = 10000)
+                        time.sleep(2)
                         if com_device != "":
                             com_device.write( b"{.}" )
                             time.sleep(0.1)
                             com_device.write( b"\n" )
-                            time.sleep(0.5)
+                            time.sleep(2)
                             while com_device.inWaiting() != 0 and connected == False:
                                 muC = com_device.readline().decode('UTF-8')
                                 if muC.find("Ardumower") >= 0:
@@ -1204,7 +1210,7 @@ class ThreadedClient:
                 try:
 
                     msg += mower.readline().decode('UTF-8')
-                    msg.strip("\n")
+##                    msg.strip("\n")
 
 
                     if (msg.find("|") == -1) and (msg.find(",") == -1) and (msg.find("{") == -1) and (msg.find("}") == -1):
