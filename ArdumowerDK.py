@@ -797,7 +797,7 @@ class GuiDebug(tk.Toplevel):
         self.debug_text.config(yscrollcommand=self.debug_text_scrollbar.set)
         self.debug_text_scrollbar.config(command=self.debug_text.yview)
         self.debug_text.grid(row=6,column=3,sticky="nesw")
-        self.debug_text_scrollbar.grid(row=6,column=3,sticky="nesw")
+        self.debug_text_scrollbar.grid(row=6,column=3,sticky="nes")
         def send_debug_command():
             sendQueue.put(self.debug_entry_var.get())
         self.sendbutton = tk.Button(self, text='Send', command= send_debug_command)
