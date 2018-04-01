@@ -12,6 +12,7 @@ RF24_Mesh Serial Communication to Ardumower and other nodes
     RF24 librarry
     RF24_Network librarry
     RF24_Mesh librarry
+    by TMRh20
     
 	Python 2.7 32bit / Python 3
 		Pyserial
