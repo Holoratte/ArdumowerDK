@@ -53,8 +53,10 @@ import platform
 import serialenum
 import csv
 import datetime
-import Pushalot
+##import Pushalot
+import notifymydevice
 import pygame
+import timeit
 
 class GuiPart:
     def __init__(self, master, receivedQueue, sendQueue, receiveConnected_Queue,
@@ -78,6 +80,7 @@ class GuiPart:
         self.sTfQueue = saveToFile_Queue
         self.rCQueue = receiveConnected_Queue
         self.lTfQueue = logToFile_Queue
+        self.initString = "{.Ardumower (Ardumower)|r~Commands|n~Manual|s~Settings|in~Info|c~Test compass|m1~Log sensors|yp~Plot|y4~Error counters|y9~ADC calibration}init"
             # Set up the GUI
 
         #---------------Menu--------------------------------------------
@@ -185,7 +188,7 @@ class GuiPart:
             self.scale[i].grid_remove()
 
 #        -----------------------------------Plot---------------------------
-        self.canvasnumber =9 #number of subsubplots (1-9)
+        self.canvasnumber =8 #number of subsubplots (1-9)
         self.plot = False
         self.channel = 0
         self.f = Figure()
@@ -370,9 +373,11 @@ class GuiPart:
         pass
 ##        self.send("")
     def sendoff(self,event):
+        self.mainmenu()
         self.send("ro")
 
     def sendAutomode(self,event):
+        self.mainmenu()
         self.send("ra")
 
     def send(self, command, value = None):
@@ -414,7 +419,7 @@ class GuiPart:
 
     def mainmenu(self):
         self.plot = False
-        self.RQueue.put("{.Ardumower (Ardumower)|r~Commands|n~Manual|s~Settings|in~Info|c~Test compass|m1~Log sensors|yp~Plot|y4~Error counters|y9~ADC calibration}init")
+        self.RQueue.put(self.initString + "init")
         self.send("s")
         self.console1.grid_remove()
         for d in range(len(self.nav_buttons)):
@@ -515,18 +520,20 @@ class GuiPart:
                 if len(msg_list) >= 1 or self.plot:
     ##
                     if init:
-                        self.titles = []
-                        self.maincommand_list=[]
-                        self.maincomName_list = []
-                        self.c.get_tk_widget().grid_remove()
-##                        self.toolbar.grid_remove()
-                        for i in range(len(msg_list)-1):
-                            coma, comName = msg_list[i+1].split("~")
-                            self.maincommand_list.append(coma)
-                            self.maincomName_list.append(comName)
-                            self.main_buttons[i].grid()
-                            self.main_buttons[i].configure(text=self.maincomName_list[i], command= lambda i=i: self.send(self.maincommand_list[i]))
-                            self.titles.append(comName)
+                        try:
+                            self.titles = []
+                            self.maincommand_list=[]
+                            self.maincomName_list = []
+                            self.c.get_tk_widget().grid_remove()
+    ##                        self.toolbar.grid_remove()
+                            for i in range(len(msg_list)-1):
+                                coma, comName = msg_list[i+1].split("~")
+                                self.maincommand_list.append(coma)
+                                self.maincomName_list.append(comName)
+                                self.main_buttons[i].grid()
+                                self.main_buttons[i].configure(text=self.maincomName_list[i], command= lambda i=i: self.send(self.maincommand_list[i]))
+                                self.titles.append(comName)
+                        except: pass
                         init = False
 ##                            self.console1.grid()
 
@@ -807,7 +814,7 @@ class GuiDebug(tk.Toplevel):
         self.debug_text.config(yscrollcommand=self.debug_text_scrollbar.set)
         self.debug_text_scrollbar.config(command=self.debug_text.yview)
         self.debug_text.grid(row=6,column=3,sticky="nesw")
-        self.debug_text_scrollbar.grid(row=6,column=3,sticky="nes")
+        self.debug_text_scrollbar.grid(row=6,column=3,sticky="nse")
         def send_debug_command():
             sendQueue.put(self.debug_entry_var.get())
         self.sendbutton = tk.Button(self, text='Send', command= send_debug_command)
@@ -844,9 +851,10 @@ class GuiDebug(tk.Toplevel):
 
 
 class GuiConnect(tk.Toplevel):
-    def __init__(self, master,initQueue, close_com):
+    def __init__(self, master,initQueue, close_com, checkDevices, chooseDevice):
         tk.Toplevel.__init__(self)
         self.initQueue = initQueue
+        self.checkDevices = checkDevices
         self.master = master
         self.title("Connection")
         self.geometry('+300+10')
@@ -854,16 +862,31 @@ class GuiConnect(tk.Toplevel):
         self.connection_entry = tk.Entry(self, textvariable = self.connection_entry_var, width = 50)
         self.connection_entry.grid(column = 3, row =0)
         self.options_var=tk.StringVar()
+        self.device_options_var = tk.StringVar()
         self.connection_options = []
+        self.device_options = []
+        self.device_options.append("1")
         def scan():
             self.connection_options = []
             self.connection_options = serialenum.enumerate()
 ##        self.connection_options.append("Network")
             self.connection_options.append("")
             self.options_var.set(self.connection_options[-1])
+##            print self.connection_options
             self.options = tk.OptionMenu(*(self,self.options_var)+tuple(self.connection_options))
             self.options.grid(column = 3, row = 5, sticky = "w")
 
+        def checkdevicesonline():
+            self.device_options = []
+            self.device_options.append("1")
+            self.checkDevices()
+    ##            print self.device_options
+            self.device_options_var.set(self.device_options[-1])
+            self.device_options_menue = tk.OptionMenu(*(self,self.device_options_var)+tuple(self.device_options))
+            self.device_options_menue.grid(column = 3, row = 6, sticky = "w")
+
+
+        self.checkdevicesonline()
         scan()
 ##        self.___entry_in_var=tk.StringVar()
 ##        self.___entry_in = tk.Entry(self, textvariable = self.___entry_in_var)
@@ -891,18 +914,31 @@ class GuiConnect(tk.Toplevel):
             else:
                 self.initQueue.put(msg)
 
+
         self.scanbutton = tk.Button(self, text='Rescan', command = scan)
         self.scanbutton.grid(column = 3, row = 5, sticky = "e")
+
+        self.checkDevicesbutton = tk.Button(self, text='Devices nfo', command = checkdevicesonline)
+        self.checkDevicesbutton.grid(column = 3, row = 6, sticky = "e")
+        self.chooseDevicesbutton = tk.Button(self, text='Choose device', command = chooseDevice)
+        self.chooseDevicesbutton.grid(column = 3, row = 7, sticky = "e")
+
         self.connectbutton = tk.Button(self, text='Connect', command= connect_command)
         self.connectbutton.grid(column = 3, row =4, sticky = "w")
         self.disconnectbutton = tk.Button(self, text='Disconnect', command= close_com, state = tk.DISABLED)
         self.disconnectbutton.grid(column = 3, row =4, sticky = "e")
         self.autodetect_checkbutton_var = tk.IntVar()
-        if (platform.system() == 'Windows'):self.autodetect_checkbutton_var.set(1)
+        if (platform.system() == 'Windows'):self.autodetect_checkbutton_var.set(0)
         else: self.autodetect_checkbutton_var.set(0)
         self.autodetect_checkbutton = tk.Checkbutton(self, text = "Autodetect", variable = self.autodetect_checkbutton_var)
-        if (platform.system() == 'Windows'):self.autodetect_checkbutton.grid(column = 3, row = 7)
+        if (platform.system() == 'Windows'):self.autodetect_checkbutton.grid(column = 3, row = 7, sticky = "w")
 
+    def checkdevicesonline(self):
+        self.checkDevices()
+##            print self.device_options
+        self.device_options_var.set(self.device_options[-1])
+        self.device_options_menue = tk.OptionMenu(*(self,self.device_options_var)+tuple(self.device_options))
+        self.device_options_menue.grid(column = 3, row = 6, sticky = "w")
 
 ##        self.withdraw()
 
@@ -924,6 +960,7 @@ class ThreadedClient:
         self.pushalotTokken = ""
         self.errormsg = ""
         self.timestart = time.time()
+        self.RCStateOn = False
 
         # Create the queue
         self.received_queue = Queue.Queue()
@@ -934,6 +971,7 @@ class ThreadedClient:
         self.connected_queue = Queue.Queue()
         self.saveToFile_Queue = Queue.Queue()
         self.logToFile_Queue = Queue.Queue()
+        self.RCQueue = Queue.Queue()
 
         # Set up the GUI part
         def openDebug():
@@ -959,7 +997,7 @@ class ThreadedClient:
                             self.endApplication, openDebug, openCom)
         self.gui_Debug = GuiDebug(master, self.receive_connected_queue, self.send_queue)
         self.gui_Debug.protocol("WM_DELETE_WINDOW", hide_Debug)
-        self.gui_com = GuiConnect(master, self.init_Queue, self.close_com)
+        self.gui_com = GuiConnect(master, self.init_Queue, self.close_com, self.checkDevices, self.chooseDevice)
         self.gui_com.protocol("WM_DELETE_WINDOW", hide_Com)
         # Set up the thread to do asynchronous I/O
         # More can be made if necessary
@@ -970,17 +1008,20 @@ class ThreadedClient:
         self.master.after(1000,self.threadI.start)
         self.threadR = threading.Thread(target=self.receiveThread)
         self.threadS = threading.Thread(target=self.sendThread)
-        self.master.after(1000, self.threadR.start)
+        self.joy_thread = threading.Thread(target=self.joystickControl)
+
         self.master.after(1000, self.threadS.start)
+
         try:
-            with open("pushalottokken.txt","r") as pushalotTokkenFile:
+            with open("api_key.txt","r") as pushalotTokkenFile:
                 self.pushalotTokken = pushalotTokkenFile.readline()
             self.pushalotTokken = self.pushalotTokken.strip("\n")
             print ( self.pushalotTokken )
         except:
             print ( "file does not exist" )
-
-
+        pygame.mixer.init()
+        self.crash_sound = "LambSound_6.wav"
+        self.joystick_init()
         # Start the periodic call in the GUI to check if the queue contains
         # anything
         self.master.after(1000,self.periodicCall)
@@ -1009,11 +1050,17 @@ class ThreadedClient:
                         timer = time.time() - self.timestart
     ##                    if (msg != self.errormsg) and (self.pushalotTokken != "") and (timer >= 60):
                         if  (timer >= 60):
-                            Pushalot.send(self.pushalotTokken, msg)
+##                            Pushalot.send(self.pushalotTokken, msg)
+                            notifymydevice.send(self.pushalotTokken, msg)
+                            pygame.mixer.music.load(self.crash_sound)
+                            pygame.mixer.music.play()
                             self.errormsg = msg
                             self.timestart = time.time()
                     if (msg.find("trigger") >= 0):
-                        Pushalot.send(self.pushalotTokken, msg)
+##                        Pushalot.send(self.pushalotTokken, msg)
+                        notifymydevice.send(self.pushalotTokken, msg)
+                        pygame.mixer.music.load(self.crash_sound)
+                        pygame.mixer.music.play()
 
 
 
@@ -1026,7 +1073,7 @@ class ThreadedClient:
         while self.connected_queue.qsize():
             try:
                 msg = self.connected_queue.get()
-                if msg == "connected":
+                if msg.find("connected") >= 0:
                     self.gui_com.connectbutton.configure(state =  tk.DISABLED)
                     self.gui_com.disconnectbutton.configure(state =  tk.NORMAL)
                     self.connected = True
@@ -1036,9 +1083,14 @@ class ThreadedClient:
                     self.gui_com.disconnectbutton.configure(state =  tk.DISABLED)
                     self.connected = False
                     self.master.title("ArdumowerDK " + msg)
+                elif msg.find("Devices:") >= 0:
+                    msgHeader, msg = msg.split(":")
+                    self.gui_com.device_options.append(msg)
+                    self.gui_com.checkdevicesonline()
                 else:
                     self.gui_com.connection_entry_var.set(msg)
                     self.master.title("ArdumowerDK Connected: " + msg)
+
             except Queue.Empty:
                 pass
     def initThread(self):
@@ -1080,6 +1132,7 @@ class ThreadedClient:
         com = 0
         com_exclude = []
         connected = False
+        nodeId = 28
         while self.init_com:
             time.sleep(0.01)
 
@@ -1102,19 +1155,26 @@ class ThreadedClient:
 
                     elif autodetect and  (platform.system() == 'Windows'):
                         while com_device == "" and connected == False and com <=49:
+                            time.sleep(0.005)
                             com_device, com = scan_comport(com_exclude)
                 ##            time.sleep(0.1)
                             if com_device != "":
+                                com_device.write( b'{' + chr(int(nodeId)) + b"}\n")
                                 com_device.write( b"{.}" )
                                 time.sleep(0.1)
                                 com_device.write( b"\n" )
                                 time.sleep(2)
                                 while com_device.inWaiting() != 0 and connected == False:
                                     muC = com_device.readline().decode('UTF-8')
+                                    print muC
                                     if muC.find("Ardumower") >= 0:
                                         print( "found Ardumower" )
                                         print( muC )
                                         self.Ardumower = com_device
+                                        while muC.find("}") < 0:
+                                            muC += com_device.readline().decode('UTF-8')
+                                        com_device.flushInput()
+                                        com_device.flushOutput()
                                         ms = muC + "init"
                                         self.received_queue.put(ms)
                                         self.receive_connected_queue.put("connected")
@@ -1133,30 +1193,24 @@ class ThreadedClient:
 
 
                     elif msg != "":
-                        com_device = serial.Serial(msg, baudrate=19200, writeTimeout = 10000)
-                        time.sleep(2)
-                        if com_device != "":
-                            com_device.write( b"{.}" )
-                            time.sleep(0.1)
-                            com_device.write( b"\n" )
-                            time.sleep(2)
-                            while com_device.inWaiting() != 0 and connected == False:
-                                muC = com_device.readline().decode('UTF-8')
-                                if muC.find("Ardumower") >= 0:
-                                    time.sleep(0.5)
-                                    com_device.flushInput()
-                                    com_device.flushOutput()
-                                    time.sleep(0.5)
-                                    print( "found Ardumower" )
-                                    self.Ardumower = com_device
-                                    ms = muC + "init"
-                                    self.receive_connected_queue.put("connected")
-                                    self.send_queue.put("connected")
-                                    self.received_queue.put(ms)
-                                    msg = ""
-                                    self.connected_queue.put("connected")
-                                    connected = True
-##                                else: print "Failed to connect to Device"
+                        try:
+                            com_device = serial.Serial(msg, baudrate=19200, writeTimeout = 10000)
+                            if com_device != "":
+                                com_device.flushInput()
+                                com_device.flushOutput()
+                                self.Ardumower = com_device
+                                connected = True
+                                self.master.after(100, self.threadR.start)
+                                self.master.after(1000, self.receive_connected_queue.put("connected"))
+                                print "receive Thred started"
+##                                self.master.after(2000, checkDevices)
+##                                self.master.after(2000, checkDevices)
+
+
+                        except:
+                            if com_device != "": com_device.close()
+                            print "Failed to connect to Device port closed"
+                            pass
 
                 except Queue.Empty:
                     pass
@@ -1171,14 +1225,29 @@ class ThreadedClient:
         One important thing to remember is that the thread has to yield
         control.
         """
+        msgComplete = False
         msg = ""
+        msgx = ""
+        msga = ""
+        noId = ""
+        msg1 = []
+        deviceName = []
+        msgComplete = []
+        for i in range(254):
+            msg1.append("")
+            deviceName.append("")
+            msgComplete.append(False)
+        nodeId = 28
         connected = False
         sheepReply_checkbutton_var = False
         dataPlot_checkbutton_var = False
         settings_toFile = False
         logToFile = False
+        mower = self.Ardumower
+        muC =""
+
         while self.running:
-            time.sleep(0.005)
+            time.sleep(0.010)
             # To simulate asynchronous I/O, we create a random number at
             # random intervals. Replace the following 2 lines with the real
             # thing.
@@ -1190,6 +1259,10 @@ class ThreadedClient:
                     if msg == "connected":
                         connected = True
                         mower = self.Ardumower
+                        self.send_queue.put("connected")
+                        self.connected_queue.put("connected")
+                        time.sleep(2)
+                        self.checkDevices()
 
                     elif msg == "disconnected": connected = False
                     elif msg == "Sheep Debug": sheepReply_checkbutton_var = True
@@ -1200,35 +1273,95 @@ class ThreadedClient:
                     elif msg == "not_settingsToFile": settings_toFile = False
                     elif msg == "log": logToFile = True
                     elif msg == "no log": logToFile = False
+
                     msg = ""
 
                 except Queue.Empty:
                     pass
 
 
-            while connected and  mower.inWaiting() != 0:
+
+            while  mower.inWaiting() >= 1 and connected:
+                time.sleep(0.003)
                 try:
+                    try:
+                        msgx = mower.readline().decode('UTF-8')
+##                        print "msgx " , msgx
+                        if len(msgx) >= 2:
+##                            print "msgx " , msgx
+                            msgx = msgx[:-1]
+                            noId, msga = msgx.split("#")
+##                        print "Id ", Id
+                            noId = noId.strip()
+                            nodeId = int(noId)
 
-                    msg += mower.readline().decode('UTF-8')
-##                    msg.strip("\n")
+                            msg1[nodeId] += msga
+##                            print nodeId, msg1[nodeId]
+                        elif msgx.find("\n") >= 0:
+                            msgComplete[nodeId] = True
+                        else:
+                            break
 
 
-                    if (msg.find("|") == -1) and (msg.find(",") == -1) and (msg.find("{") == -1) and (msg.find("}") == -1):
-                        self.receivedDebug_queue.put("Sheep debug: " + msg)
+
+
+                    except:
+                        msg1[0] += msgx
+                        msgx = ""
+                        nodeId = 0
+                        deviceName[nodeId] = "RF24 - Master"
+                        msgComplete[nodeId] = True
+                        if msg1[0].find("NodeID:") >=0 :
+                            str1 = msg1[0][msg1[0].find(":")+1:msg1[0].find(":") + 5].strip(" ")
+                            if not (str1 in self.gui_com.device_options):
+                                self.connected_queue.put("Devices:"+str1)
+
+
+
+##                        print "Exception ", msg1[0]
+
+
+                    if msg1[nodeId].find("{.Ardumower (") >= 0:
+                        print( "found Device" )
+
+                        while msg1[nodeId].find("}") < 0:
+                            noId, muCx = mower.readline().decode('UTF-8').split("#")
+                            nodeId = int(noId)
+                            muCx = muCx[:-1]
+                            msg1[nodeId] += muCx
+                        self.Ardumower.flushInput()
+                        self.Ardumower.flushOutput()
+                        print( msg1[nodeId] )
+                        deviceName[nodeId] = msg1[nodeId][msg1[nodeId].find("(") + 1:msg1[nodeId].find(")")]
+##                        print deviceName
+                        self.connected_queue.put("connected to " + deviceName[nodeId])
+                        ms = msg1[nodeId] + "init"
+                        self.gui.initString = msg1[nodeId]
+                        self.received_queue.put(ms)
                         msg = ""
-                    elif not msg.find("{")>= 0:
-                        if not logToFile: self.received_queue.put(msg)
-                        else: self.logToFile_Queue.put(msg)
-                        if dataPlot_checkbutton_var == True: self.receivedDebug_queue.put("Plot data: " + msg)
-                        msg = ""
+                        msg1[nodeId] = ""
+                        nodeId = 0
+                        msgComplete[nodeId] = False
 
-                    elif msg.find("}")>= 0:
-                        if settings_toFile: self.saveToFile_Queue.put(msg)
+                    elif (msgComplete[nodeId]) and (msg1[nodeId].find("|") == -1) and (msg1[nodeId].find(",") == -1) and (msg1[nodeId].find("{") == -1) and (msg1[nodeId].find("}") == -1):
+                        self.receivedDebug_queue.put(str(nodeId) + " " + deviceName[nodeId] + ": " + msg1[nodeId])
+                        msg1[nodeId]= ""
+                        msgComplete[nodeId] = False
+                    elif (msgComplete[nodeId]) and (msg1[nodeId].find("{") == -1):
+                        if not logToFile: self.received_queue.put(msg1[nodeId])
+                        else: self.logToFile_Queue.put(msg1[nodeId])
+                        if dataPlot_checkbutton_var == True: self.receivedDebug_queue.put(str(nodeId) + " " + deviceName[nodeId] + ": Plot data: " + msg1[nodeId])
+                        msg1[nodeId] = ""
+                        msgComplete[nodeId] = False
+
+                    elif (msgComplete[nodeId]) and (msg1[nodeId].find("}")>= 0):
+                        if settings_toFile: self.saveToFile_Queue.put(msg1[nodeId])
 ##                        elif logToFile: self.logToFile_Queue.put(msg)
-                        else: self.received_queue.put(msg)
-
-                        if sheepReply_checkbutton_var == True: self.receivedDebug_queue.put("Sheep : " + msg)
-                        msg = ""
+                        else:
+                            self.received_queue.put(msg1[nodeId])
+                        if sheepReply_checkbutton_var == True: self.receivedDebug_queue.put(str(nodeId) + " " + deviceName[nodeId] + ": " + msg1[nodeId])
+                        msg1[nodeId] = ""
+                        msgComplete[nodeId] = False
                 except serial.SerialException:
                     self.connected_queue.put("disconnected")
                     pass
@@ -1275,6 +1408,7 @@ class ThreadedClient:
         One important thing to remember is that the thread has to yield
         control.
         """
+        nodeId = 28
         connected = False
         sheepSent_checkbutton_var = False
         while self.running:
@@ -1285,28 +1419,29 @@ class ThreadedClient:
                         #
                     msg = self.send_queue.get(0)
 ##                    print msg
-                    if msg == "connected":
+
+                    if msg.find("NodeId") >= 0:
+                        nodeId = int(msg[6:])
+##                        print nodeId
+                    elif msg == "connected":
                         connected = True
                         mower = self.Ardumower
                     elif msg == "Sent Debug": sheepSent_checkbutton_var = True
                     elif msg == "Sent noDebug": sheepSent_checkbutton_var = False
                     elif msg == "disconnected": connected = False
 
-
                     elif connected:
                         try:
-                            if msg.find("#") >= 0:
-                                print ("Joystick sent")
-                                mower.write(msg[:2])
-        ##                        print msg[:2]
-                                msg = msg[2:]
-        ##                        print msg
-                                if len(msg) >= 1: mower.write(chr(int(msg)))
-                                mower.write(b"\n")
+                            if msg.find("*") >= 0:
+##                                print ("Info request")
+                                mower.write( msg.encode('UTF-8') + b"\n")
                             else:
+                                mower.write( b'*' + chr(int(nodeId)) + b"\n")
+                                time.sleep(0.003)
                                 mower.write( b'{' + msg.encode('UTF-8') + b"}\n")
-                            if sheepSent_checkbutton_var == True:
-                                    self.receivedDebug_queue.put("DK: "+ msg)
+    ##                            print( b'*' + chr(int(nodeId)) + b"\n")
+                                if sheepSent_checkbutton_var == True:
+                                        self.receivedDebug_queue.put("DK: "+ msg)
                         except serial.SerialException:
                             self.connected_queue.put("disconnected")
                             pass
@@ -1362,63 +1497,114 @@ class ThreadedClient:
 ##        const int pinMow = 5;     B
 ##        const int pinSteer = 6;   C
 ##        const int pinSpeed = 7;   D
-                # Arduino joystick
-                if axis == "X":
-                    pos = e.dict['value']
-                    # convert joystick position to g-code movement
-                    move = round(pos * 1000, 0)
-                    mappedMove = self.remap(move,-1000,1000,0,255)+1
-                    if mappedMove <= 0.0:
-                        mappedMove = 0.0
-                    if mappedMove >= 255.0:
-                        mappedMove = 255.0
-                    msg = "#c" + str(int(mappedMove))
-                    print (msg)
-                    self.queue2.put(msg)
-
-                if axis == "Y":
-                    pos = e.dict['value']
-                    # convert joystick position to 0-255
-                    move = round(pos * 1000, 0)
-                    mappedMove = self.remap(move,-1000,1000,0,255)+1
-                    if mappedMove <= 0.0:
-                        mappedMove = 0.0
-                    if mappedMove >= 255.0:
-                        mappedMove = 255.0
-                    msg = "#d" + str(int(mappedMove))
-                    print (msg)
-                    self.queue2.put(msg)
-
-                if axis == "Z":
-                    pos = e.dict['value']
-                    # convert joystick position to g-code movement
-                    move = round(pos * 1000 , 0)
-                    if move <= 0.0:
-                        move = 0.0
-                    mappedMove = self.remap(move,0,1000,0,255)
-                    if mappedMove <= 0.0:
-                        mappedMove = 0.0
-                    if mappedMove >= 255.0:
-                        mappedMove = 255.0
-                    msg = "#b" + str(int(mappedMove))
-                    print (msg)
-                    self.queue2.put(msg)
-
+##                # Arduino joystick
+##                if axis == "X":
+##                    pos = e.dict['value']
+##                    # convert joystick position to g-code movement
+##                    move = round(pos * 1000, 0)
+##                    mappedMove = self.remap(move,-1000,1000,0,255)+1
+##                    if mappedMove <= 0.0:
+##                        mappedMove = 0.0
+##                    if mappedMove >= 255.0:
+##                        mappedMove = 255.0
+##                    msg = "#c" + str(int(mappedMove))
+##                    print (msg)
+##                    self.send_queue.put(msg)
+##
+##                if axis == "Y":
+##                    pos = e.dict['value']
+##                    # convert joystick position to 0-255
+##                    move = round(pos * 1000, 0)
+##                    mappedMove = self.remap(move,-1000,1000,0,255)+1
+##                    if mappedMove <= 0.0:
+##                        mappedMove = 0.0
+##                    if mappedMove >= 255.0:
+##                        mappedMove = 255.0
+##                    msg = "#d" + str(int(mappedMove))
+##                    print (msg)
+##                    self.send_queue.put(msg)
+##
+##                if axis == "Z":
+##                    pos = e.dict['value']
+##                    # convert joystick position to g-code movement
+##                    move = round(pos * 1000 , 0)
+##                    if move <= 0.0:
+##                        move = 0.0
+##                    mappedMove = self.remap(move,-1000,1000,0,255)
+##                    if mappedMove <= 0.0:
+##                        mappedMove = 0.0
+##                    if mappedMove >= 255.0:
+##                        mappedMove = 255.0
+##                    msg = "#b" + str(int(mappedMove))
+##                    print (msg)
+##                    self.send_queue.put(msg)
+##
         elif e.type == pygame.JOYBUTTONDOWN:
             str_1 = "Button: %d" % (e.dict['button'])
             # uncomment to debug
-            #output(str_1, e.dict['joy'])
+##            print(str_1, e.dict['joy'])
             # Button 0 (trigger) to quit
-            if (e.dict['button'] == 0):
-                print ("Bye!n")
+            if (e.dict['button'] == 1):
+                if not self.RCStateOn:
+                    self.RCStateOn = True
+                    msg = "rc"
+                    self.send_queue.put(msg)
+                    self.RCQueue.put("RC")
+                else:
+                    self.RCStateOn = False
+                    msg = "ro"
+                    self.send_queue.put(msg)
+                    self.RCQueue.put("noRC")
         else:
             pass
 
     def joystickControl(self):
+        sentTime = timeit.default_timer()
+        jogInterval = 0.3
+        sendRCData = False
         while self.running:
+            time.sleep(0.005)
+            if  self.RCQueue.qsize():
+                try:
+                        # Check contents of message and do what it says
+                    msg = self.RCQueue.get(0)
+##                    print msg
+                    if msg == "RC":
+                        sendRCData = True
+                    elif msg == "noRC":
+                        sendRCData = False
+                    msg = ""
+
+                except Queue.Empty:
+                    pass
             e = pygame.event.wait()
             if (e.type == pygame.JOYAXISMOTION or e.type == pygame.JOYBUTTONDOWN):
                 self.handleJoyEvent(e)
+
+                joyX = self.joy[0].get_axis(3)
+                joyY = self.joy[0].get_axis(2)
+                joyZ = self.joy[0].get_axis(0)
+                maxSpeed = self.joy[0].get_axis(1)
+##                print(joyX, joyY, joyZ ,maxSpeed)
+                if  joyX > -0.03:
+                    if joyX < 0.03:
+                        joyX = 0.0
+                if  joyY > -0.03:
+                    if joyY < 0.03:
+                        joyY = 0.0
+                if  joyZ > -0.03:
+                    if joyZ < 0.03:
+                        joyZ = 0.0
+
+                if ((timeit.default_timer() - sentTime) >= jogInterval) and sendRCData:
+                    sentTime = timeit.default_timer()
+                    msg = "$X" + str(int(round(-joyX*100, 0)))
+                    self.send_queue.put(msg)
+##                    print msg
+                    msg = "$Y" + str(int(round(-joyY*100, 0)))
+                    self.send_queue.put(msg)
+##                    print msg
+
 
     def joystick_init(self):
         self.joy = []
@@ -1471,21 +1657,36 @@ class ThreadedClient:
 
         return result
     def endApplication(self):
+        def stopthreads():
+            self.running = False
+            self.init_com = False
 
         if self.running:
             if tkMessageBox.askokcancel("Quit", "Do you really wish to quit?"):
-                self.running = False
-                self.init_com = False
-                self.master.after(100, self.close_com)
+                self.send_queue.put(".")
+                self.send_queue.put(".")
+                self.master.after(500, stopthreads)
+                self.master.after(700, self.close_com)
                 self.master.after(1000, self.master.destroy)
-
 ##                self.master.after(1000, sys.exit)
         else:
             self.master.destroy()
+    def checkDevices(self):
+        self.send_queue.put("*\0")
+
+    def chooseDevice(self):
+        msg = "s"
+##        self.send_queue.put(msg)
+        msg = "NodeId"+ self.gui_com.device_options_var.get()
+        self.send_queue.put(msg)
+        msg = "."
+        self.send_queue.put(msg)
+
+
 
     def close_com(self):
         if self.connected:
-            autodetect = True
+            autodetect = False
             ms = "disconnect"
             msg = autodetect, ms
             if self.init_com: self.init_Queue.put(msg)
