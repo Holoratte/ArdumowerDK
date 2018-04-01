@@ -1,23 +1,22 @@
 # ArdumowerDK
-Bluetooth/WIFI Serial Communication to Ardumower
+RF24_Mesh Serial Communication to Ardumower and other nodes
 
 
 #Dependencies:
+  Tested with:
 	Win XP, Win Vista, Win 7, Win 8, Win 10, Linux
 	
-	Bluetooth Serial emulation *COM port installed (outgoing) 
-		
-	WIFI serial connection
-		by using HW "VSP3 - Virtual Serial Port" 
-		from http://www.hw-group.com/products/hw_vsp/index_en.html#download
-		Single-port version of HW VSP3 is available freely...
+	nRF24 modules connected to Arduino's
 	
-	ArdumowerDK will scan all available comports and send {.} (or you just choose one)
-	while listening to an "Ardumower" reply to determine if talking to Ardumower or not
-	
+  Arduino UNO
+    RF24 librarry
+    RF24_Network librarry
+    RF24_Mesh librarry
+    
 	Python 2.7 32bit / Python 3
 		Pyserial
 		Matplotlib
+    Pygame
 
 
 #Keyboard shortcuts:
@@ -41,6 +40,8 @@ Bluetooth/WIFI Serial Communication to Ardumower
 	it's now possible to save your mowers settings to ta txt file
 	Timer settings are ignored
 
+#Mobile Devices can be notified via NotifyMyDevice service
+  Enter your API tokken in API.txt
 
 
 #use at your own risk
