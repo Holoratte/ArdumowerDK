@@ -44,11 +44,12 @@ import random
 import Ringbuffer
 import serial
 import matplotlib
+
 matplotlib.use('TkAgg')
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
-from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter, MaxNLocator
 import platform
 import serialenum
 import csv
@@ -57,6 +58,8 @@ import datetime
 import notifymydevice
 import pygame
 import timeit
+import numbers
+import decimal
 
 class GuiPart:
     def __init__(self, master, receivedQueue, sendQueue, receiveConnected_Queue,
@@ -81,6 +84,7 @@ class GuiPart:
         self.rCQueue = receiveConnected_Queue
         self.lTfQueue = logToFile_Queue
         self.initString = "{.Ardumower (Ardumower)|r~Commands|n~Manual|s~Settings|in~Info|c~Test compass|m1~Log sensors|yp~Plot|y4~Error counters|y9~ADC calibration}init"
+        self.plotOrLog = False
             # Set up the GUI
 
         #---------------Menu--------------------------------------------
@@ -228,6 +232,7 @@ class GuiPart:
             self.ax[i].set_xlim(1, 300)
             self.ax[i].set_xlabel(self.plotxlabels[i])
             self.ax[i].set_ylabel(self.plotylabels[i])
+            self.ax[i].yaxis.set_major_formatter(MaxNLocator(3))
             self.ax[i].yaxis.set_major_formatter(FormatStrFormatter('%d'))
             self.canvas.append(self.ax[i].figure.canvas)
 
@@ -319,7 +324,7 @@ class GuiPart:
         for i in range(len(self.backgrounds)):
             self.backgrounds[i] = self.canvas[i].copy_from_bbox(self.ax[i].bbox)
 
-    def update_plots(self, tdata1=[], data=[], channel=0,dnumber=0, *args):
+    def update_plots(self, tdata1=[], data=[], channel=0, dnumber=0, *args):
 
         if len(tdata1) == len(data):
             if self.backgrounds[channel] is None: return True
@@ -329,9 +334,11 @@ class GuiPart:
             if len(data)>=0:
                 lo,hi=float(min(data)), float(max(data))
                 if lo <= self.lo[dnumber] or hi>= self.hi[dnumber]:
-                    self.lo[dnumber], self.hi[dnumber]=float(lo)-1,float(hi)+1
+                    if hi - lo > 2: self.lo[dnumber], self.hi[dnumber]=float(lo)-1,float(hi)+1
+                    else: self.lo[dnumber], self.hi[dnumber]=float(lo)-0.01,float(hi)+0.01
                     self.ax[channel].set_ylim(self.lo[dnumber], self.hi[dnumber])
-
+                    if hi - lo > 2: self.ax[channel].yaxis.set_major_formatter(FormatStrFormatter('%d'))
+                    else: self.ax[channel].yaxis.set_major_formatter(FormatStrFormatter('%.02f'))
                     self.master.after_idle(self.ax[channel].figure.canvas.draw)
                     for i in range(self.canvasnumber):
                         self.master.after_idle(self.ax[i].draw_artist,self.lines[i])
@@ -457,6 +464,12 @@ class GuiPart:
                     self.master.after_idle(self.ax[i].figure.canvas.draw)
             self.idle_flag = True
 
+    def is_number(self,s):
+        try:
+            int(s)
+            return True
+        except ValueError:
+            return False
 
     def processIncoming(self):
         """
@@ -486,7 +499,12 @@ class GuiPart:
 
                 msg = msg.strip("\n")
                 msg = msg.strip("\r")
-
+                if msg.find("=") == 1:
+                    self.plotOrLog = True
+##                    print self.plotOrLog
+                elif msg.find(".") == 1:
+                    self.plotOrLog = False
+##                    print self.plotOrLog
                 if msg.find("|") >= 0:
                     msg = msg.strip("{")
                     msg = msg.strip("}")
@@ -590,7 +608,9 @@ class GuiPart:
                             self.idle_flag = True
 
 
-                        elif len(data_list)>=1:
+##                        elif len(data_list)>=1:
+
+                        elif len(data_list) == len(self.hi) + self.timeSent:
                             t0 = time.time()
                             if self.timeSent:
                                 data_list = data_list[1:]
@@ -620,7 +640,7 @@ class GuiPart:
                             except:
                                 pass
 
-
+##                        print len(data_list), len(self.hi)+1
 
                     else:
                         for tiltle in self.titles:
@@ -961,6 +981,9 @@ class ThreadedClient:
         self.errormsg = ""
         self.timestart = time.time()
         self.RCStateOn = False
+        self.sendS = False
+        self.sendString =''
+        self.sendTime = timeit.default_timer()
 
         # Create the queue
         self.received_queue = Queue.Queue()
@@ -1038,6 +1061,9 @@ class ThreadedClient:
             # This is the brutal stop of the system. You may want to do
             # some cleanup before actually shutting it down.
             pass
+        if timeit.default_timer() - self.sendTime >= 0 and self.sendS:
+            self.sendS = False
+            self.send_queue.put(self.sendString)
 
         self.master.after(100, self.periodicCall)
 
@@ -1238,6 +1264,7 @@ class ThreadedClient:
             deviceName.append("")
             msgComplete.append(False)
         nodeId = 28
+        nodeIdConnected = 1
         connected = False
         sheepReply_checkbutton_var = False
         dataPlot_checkbutton_var = False
@@ -1263,6 +1290,8 @@ class ThreadedClient:
                         self.connected_queue.put("connected")
                         time.sleep(2)
                         self.checkDevices()
+                    elif msg.find("NodeId") >= 0:
+                        nodeIdConnected = int(msg[6:])
 
                     elif msg == "disconnected": connected = False
                     elif msg == "Sheep Debug": sheepReply_checkbutton_var = True
@@ -1302,9 +1331,6 @@ class ThreadedClient:
                         else:
                             break
 
-
-
-
                     except:
                         msg1[0] += msgx
                         msgx = ""
@@ -1317,21 +1343,21 @@ class ThreadedClient:
                                 self.connected_queue.put("Devices:"+str1)
 
 
-
-##                        print "Exception ", msg1[0]
-
-
                     if msg1[nodeId].find("{.Ardumower (") >= 0:
-                        print( "found Device" )
-
+##                        print( "found Device" )
                         while msg1[nodeId].find("}") < 0:
-                            noId, muCx = mower.readline().decode('UTF-8').split("#")
-                            nodeId = int(noId)
-                            muCx = muCx[:-1]
-                            msg1[nodeId] += muCx
+                            try:
+                                noId, muCx = mower.readline().decode('UTF-8').split("#")
+                                nodeId = int(noId)
+                                muCx = muCx[:-1]
+                                msg1[nodeId] += muCx
+                            except:
+                                time.sleep(0.3)
+                                self.send_queue.put(".")
+                                break
                         self.Ardumower.flushInput()
                         self.Ardumower.flushOutput()
-                        print( msg1[nodeId] )
+##                        print( msg1[nodeId] )
                         deviceName[nodeId] = msg1[nodeId][msg1[nodeId].find("(") + 1:msg1[nodeId].find(")")]
 ##                        print deviceName
                         self.connected_queue.put("connected to " + deviceName[nodeId])
@@ -1348,7 +1374,7 @@ class ThreadedClient:
                         msg1[nodeId]= ""
                         msgComplete[nodeId] = False
                     elif (msgComplete[nodeId]) and (msg1[nodeId].find("{") == -1):
-                        if not logToFile: self.received_queue.put(msg1[nodeId])
+                        if not logToFile and (nodeId == nodeIdConnected): self.received_queue.put(msg1[nodeId])
                         else: self.logToFile_Queue.put(msg1[nodeId])
                         if dataPlot_checkbutton_var == True: self.receivedDebug_queue.put(str(nodeId) + " " + deviceName[nodeId] + ": Plot data: " + msg1[nodeId])
                         msg1[nodeId] = ""
@@ -1675,12 +1701,16 @@ class ThreadedClient:
         self.send_queue.put("*\0")
 
     def chooseDevice(self):
-        msg = "s"
-##        self.send_queue.put(msg)
         msg = "NodeId"+ self.gui_com.device_options_var.get()
         self.send_queue.put(msg)
-        msg = "."
-        self.send_queue.put(msg)
+        self.receive_connected_queue.put(msg)
+        if self.gui.plotOrLog:
+            self.gui.mainmenu()
+            self.sendTime = timeit.default_timer() + 0.5
+        else: self.sendTime = timeit.default_timer()
+        self.sendString = "."
+        self.sendS = True
+
 
 
 
