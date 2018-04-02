@@ -938,7 +938,7 @@ class GuiConnect(tk.Toplevel):
         self.scanbutton = tk.Button(self, text='Rescan', command = scan)
         self.scanbutton.grid(column = 3, row = 5, sticky = "e")
 
-        self.checkDevicesbutton = tk.Button(self, text='Devices nfo', command = checkdevicesonline)
+        self.checkDevicesbutton = tk.Button(self, text='Devices info', command = checkdevicesonline)
         self.checkDevicesbutton.grid(column = 3, row = 6, sticky = "e")
         self.chooseDevicesbutton = tk.Button(self, text='Choose device', command = chooseDevice)
         self.chooseDevicesbutton.grid(column = 3, row = 7, sticky = "e")
