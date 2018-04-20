@@ -583,7 +583,7 @@ class GuiPart:
                             self.idle_flag = True
 
 
-                        elif len(data_list)>=1:
+                        elif len(data_list) == len(self.hi) + self.timeSent:
                             t0 = time.time()
                             if self.timeSent:
                                 data_list = data_list[1:]
