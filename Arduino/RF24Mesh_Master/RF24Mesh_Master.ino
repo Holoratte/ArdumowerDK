@@ -26,7 +26,7 @@ RF24Network network(radio);
 RF24Mesh mesh(radio,network);
 
 #define nodeId 2
-byte otherNodeID = 54;
+byte otherNodeID = 119;
 uint32_t displayTimer = 0;
 char dataStr[140];
 char dataStrSend[140];
@@ -56,7 +56,7 @@ void setup() {
   Serial.println(mesh.getNodeID());
   // Connect to the mesh
   mesh.begin();
-  //mesh.setChannel(107);
+  mesh.setChannel(107);
   //delay(1500);
   //mesh.setStaticAddress(119, 4);
   //mesh.setStaticAddress(28, 44);
@@ -263,4 +263,3 @@ ISR(WDT_vect) // Watchdog timer interrupt.
   Serial.print("W");
   Serial.println("\t");
 }
-

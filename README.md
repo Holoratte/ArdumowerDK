@@ -11,7 +11,7 @@ RF24_Mesh Serial Communication to Ardumower and other nodes
   Arduino UNO
     RF24 librarry
     RF24_Network librarry
-    RF24_Mesh librarry
+    RF24_Mesh librarry V1.04
     by TMRh20
     
 	Python 2.7 32bit / Python 3

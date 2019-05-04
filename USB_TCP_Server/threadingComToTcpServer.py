@@ -4,7 +4,7 @@ import serial
 import time
 
 class ThreadedServer(object):
-    def __init__(self, host, port):
+    def __init__(self, host, port=3003):
         self.host = host
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -64,7 +64,7 @@ if __name__ == "__main__":
         try:
             port_num = int(port_num)
             com_port = int(port_num)-3000
-            if com_port > 0: break
+            if com_port > 0 or None: break
         except ValueError:
             pass
 
